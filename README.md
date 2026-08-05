@@ -5,15 +5,64 @@ I'm using TED-LIUM release 1 ([OpenSLR link](http://www.openslr.org/7/), [downlo
 
 **Actual phase:** **picked up by VR2YEP — development in progress (irregular)**. This is a fork of the original project by **SP5WWP**.
 
-Done:
-- speech framing and windowing (refer to [2], chapter 2.2.1)
-- autocorrelation parameters of the windowed speech, bandwidth expanded (equation 2.4 in [2])
-- Levinson-Durbin recursive solver for computing Linear Prediction (LP) filter coefficients ([2] - chapter 2.2.2)
-- conversion of LP coefficients to the LSPs (Line Spectral Pair) in the cosine domain ([2] - chapter 2.2.3)
-- Chebyshev polynomials generation for LSPs root search (LSP polynomial evaluation)
-- prepared test codebooks for LSP split-vector quantization (LSPs in the cosine domain). Refer to [1], chapter 4.2.2.3.
-- LSP codebooks full search
-- quantized and unquantized LSPs interpolation for each subframe
-- LSP->LP conversion
-- speech weighting filtering ([1] - chapter 4.2.2.4) - looks like it works
-- open-loop pitch search (T_O) - looks like it works too
+## Codec parameters
+
+| Parameter | Value |
+|-----------|-------|
+| Coding model | ACELP (Code-Excited Linear Prediction), floating point |
+| Sampling rate | 8 kHz |
+| Frame length | 30 ms / 240 samples |
+| Look-ahead | 40 samples (LPC analysis window: 280 samples) |
+| Sub-frame length | 4 × 7.5 ms / 60 samples |
+| Bitrate | **4 567 bit/s** = 137 bits per 30 ms frame |
+| LPC order | 10 (Levinson–Durbin, 60 Hz bandwidth expansion) |
+| LP representation | LSPs in cosine domain, Chebyshev polynomial root search |
+| LSP quantization | Split-VQ: 3 codebooks (3 + 3 + 4 dims, 256/512/512 entries) → **26 bits/frame** |
+| LSP interpolation | Per sub-frame: 100/0, 75/25, 50/50, 25/75 (this/previous frame) |
+| Perceptual weighting | `W(z) = A(z/γ3) / A(z/γ4)` with γ3 = 0.95, γ4 = 0.60 |
+| Shaping matrix | `F(z) = A(z/γ1) / A(z/γ2)` with γ1 = 0.75, γ2 = 0.85 (planned, [1] annex F) |
+| Open-loop pitch | Once per frame, 3 search ranges: 20–39, 40–79, 80–142 |
+| Target platform | STM32 Cortex-M7 (hardware FPU) |
+
+## Status
+
+See [TODO.md](TODO.md) for the full implementation checklist.
+
+Implemented so far (encoder):
+
+- Pre-processing (offset compensation + divide by 2)
+- Framing and modified Hamming windowing
+- Autocorrelation with bandwidth expansion
+- Levinson–Durbin LP solver with stability fallback
+- LP ↔ LSP conversion (Chebyshev polynomials, root search)
+- LSP split-vector quantization + per-sub-frame interpolation
+- Perceptual weighting filter
+- Open-loop pitch search
+
+Not yet implemented: closed-loop (adaptive) codebook search, algebraic codebook with shaping matrix, gain prediction/VQ, bit packing (137-bit frame), decoder, channel coding.
+
+## Building
+
+```sh
+make
+```
+
+The binary takes a RAW file (signed 16-bit, little-endian, 8 kHz) and runs the encoder on it:
+
+```sh
+./openacelp speech.raw
+```
+
+## Project structure
+
+```
+src/       codec sources (main, preprocess, lpc, lsp, openacelp)
+include/   public/internal headers, gamma tables, LSP codebooks
+scripts/   codebook generation tools (LBG, py-lbg)
+```
+
+## References
+
+[1] ETSI EN 300-395-2 — TETRA and Critical Communications Evolution (TCCE); Speech codec for full-rate traffic channel; Part 2: TETRA codec.
+
+[2] TIA/EIA IS-641 — TDMA Enhanced Full Rate speech codec.
