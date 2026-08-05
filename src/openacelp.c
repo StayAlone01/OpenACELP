@@ -113,11 +113,11 @@ void Speech_Weighting(int16_t *spch_out, int16_t *spch_in, float a[][11])
 //retval: integer T_0 pitch value
 uint8_t Find_Pitch(int16_t *spch, int16_t *prev_s_w)
 {
-	float C[142];
+	float C[143];
 	float max_C[3]={0.0, 0.0, 0.0};	//values
 	uint8_t ind[3]={20, 40, 80};	//indices
 	
-	memset(C, 0, 142*sizeof(float));
+	memset(C, 0, 143*sizeof(float));
 	
 	//first range
 	for(uint8_t k=20; k<=39; k++)
@@ -168,24 +168,24 @@ uint8_t Find_Pitch(int16_t *spch, int16_t *prev_s_w)
 		}
 	}
 	
-	//normalization of C_k maxima
-	//divide by normalization factor
+	//normalization of C_k maxima — divide by energy of the same
+	//120-sample stride-2 decimated signal used in the correlation numerator
 	float norm;
 	
 	for(uint8_t i=0; i<3; i++)
 	{
 		norm=0.0;
 		
-		//TODO: fix this
-		for(int16_t n=0; n<FRAME_SIZ; n++)
+		for(uint8_t j=0; j<120; j++)
 		{
-			if(n>=ind[i])
-				norm += spch[n-ind[i]]*spch[n-ind[i]];
+			if(2*j >= ind[i])
+				norm += spch[2*j-ind[i]] * spch[2*j-ind[i]];
 			else
-				norm += prev_s_w[FRAME_SIZ+(n-ind[i])]*prev_s_w[FRAME_SIZ+(n-ind[i])];
+				norm += prev_s_w[FRAME_SIZ+(2*j-ind[i])] * prev_s_w[FRAME_SIZ+(2*j-ind[i])];
 		}
 		
-		max_C[i] /= sqrt(norm);
+		if(norm > 0.0f)
+			max_C[i] /= sqrtf(norm);
 	}
 	
 	//find max
