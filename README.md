@@ -3,7 +3,7 @@ Free ACELP vocoder. It is based on **ETSI EN 300-395-2**<sup>[1]</sup> and **TIA
 
 I'm using TED-LIUM release 1 ([OpenSLR link](http://www.openslr.org/7/), [download](https://projets-lium.univ-lemans.fr/ted-lium/release1/)) as the english speech corpus and [py-lbg](https://github.com/internaut/py-lbg) for codebook generation using Linde-Buzo-Gray (LBG) algorithm.
 
-**Actual phase:** **project stalled**.
+**Actual phase:** **picked up by VR2YEP — development in progress (irregular)**. This is a fork of the original project by **SP5WWP**.
 
 Done:
 - speech framing and windowing (refer to [2], chapter 2.2.1)

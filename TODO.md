@@ -2,7 +2,7 @@
 
 Status of the codec implementation against **ETSI EN 300-395-2** (TETRA codec, [1]) and **TIA/EIA IS-641** ([2]).
 
-> **Project phase:** stalled — encoder is partially implemented (up to open-loop pitch search). Everything below marked `[ ]` is **not done yet**.
+> **Project phase:** picked up by VR2YEP — development in progress (irregular). Encoder is partially implemented (up to open-loop pitch search). Everything below marked `[ ]` is **not done yet**.
 
 Legend:
 - `[x]` — implemented
