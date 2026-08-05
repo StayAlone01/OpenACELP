@@ -5,7 +5,7 @@
 #define GAMMA_SET
 
 //gamma_1 = 0.75
-const float gamma_1[10] = 
+static const float gamma_1[10] = 
 {
 	0.75,
 	0.5625,
@@ -20,7 +20,7 @@ const float gamma_1[10] =
 };
 
 //gamma_2 = 0.85
-const float gamma_2[10] = 
+static const float gamma_2[10] = 
 {
 	0.85,
 	0.7225,
@@ -35,7 +35,7 @@ const float gamma_2[10] =
 };
 
 //gamma_3 = 0.95
-const float gamma_3[10] = 
+static const float gamma_3[10] = 
 {
 	0.95,
 	0.9025,
@@ -50,7 +50,7 @@ const float gamma_3[10] =
 };
 
 //gamma_4 = 0.60
-const float gamma_4[10] = 
+static const float gamma_4[10] = 
 {
 	0.6,
 	0.36,
