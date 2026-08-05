@@ -3,6 +3,9 @@
 
 # Object files
 *.o
+
+# Build output
+openacelp
 *.ko
 *.obj
 *.elf
