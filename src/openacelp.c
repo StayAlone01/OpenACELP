@@ -27,10 +27,13 @@ void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t
 		}
 		for(uint8_t i=1; i<=10; i++)
 		{
+			// LP coeffs use the convention A(z) = 1 + sum(a[i] z^-i), so the
+			// denominator recursion must SUBTRACT: out[n] -= sum(a[i]*out[n-i])
+			// (with '+' the poles get mirrored and the spectrum is inverted)
 			if(n>=i)
-				tmp += a[i] * out[n-i];
+				tmp -= a[i] * out[n-i];
 			else
-				tmp += a[i] * prev_w_s[FRAME_SIZ+(n-i)];
+				tmp -= a[i] * prev_w_s[FRAME_SIZ+(n-i)];
 		}
 		
 		out[n]=(int16_t)(tmp/11.0);	// Make it fit back into the int16_t

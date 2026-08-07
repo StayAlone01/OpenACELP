@@ -1,13 +1,18 @@
 #include "openacelp_internal.h"
 
 // LSP search grid — defined here, externed in header
-float grid[GRID_SIZ];
+// GRID_SIZ+1 entries (0..GRID_SIZ): the scan in LP_LSP() reads grid[GRID_SIZ] as the
+// w=pi endpoint.
+float grid[GRID_SIZ+1];
 
 // Generate grid of values for LSP computation
 void Grid_Generate(float *g)
 {
-	g[0] = 1.0;
-	g[GRID_SIZ] = -1.0;
+	// g[i] = cos(pi*i/GRID_SIZ), i = 0..GRID_SIZ -> q spans 1.0 (w=0) down to -1.0 (w=pi)
+	// in GRID_SIZ equal steps: the "60 points equally spaced between 0 and pi" of
+	// [1] cl. 4.2.2.2.
+	g[0] = 1.0;			// cos(0)
+	g[GRID_SIZ] = -1.0;	// cos(pi)
 	
 	for(uint8_t i=1; i<GRID_SIZ; i++)
 		g[i] = cos((M_PI*i)/GRID_SIZ);
@@ -89,23 +94,26 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
   				
   				// Sign change in the lower half?
 				if(y1*ym <= 0)
-        		{
-         			// Move there
-           			y2 = ym;
-           			x2 = xm;
-         		}
-         		// Same thing here - zero crossing in the second half?
-        		else
-        		{
-         			// Move there
-          			y1 = ym;
-          			x1 = xm;
-        		}
-        	}
+				{
+					// Move there
+						y2 = ym;
+						x2 = xm;
+				}
+				// Same thing here - zero crossing in the second half?
+				else
+				{
+					// Move there
+						y1 = ym;
+						x1 = xm;
+				}
+			}
         	
-        	// Linear interpolation for the fine root value
-        	x = x2-x1;
-        	y = y2-y1;
+			// Linear interpolation for the fine root value
+			// (Original code commented out: the fabs() dropped the sign of (y2-y1),
+			//  so whenever y1 > 0 the estimate extrapolated OUTSIDE the bracket [x1,x2].
+			/*
+			x = x2-x1;
+			y = y2-y1;
         	
 			if(fabs(y)<0.0001)	// Unsafe to compare floats to 0.0
 				x = x1;
@@ -115,6 +123,15 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 				y=fabs(y);
 				x1 = x1 - y1*y;
 			}
+			*/
+        	
+			// Correct linear interpolation:
+			//   x_root = x1 - y1*(x2-x1)/(y2-y1)
+			// No fabs(): y1*y2 <= 0 guarantees the root lies inside [x1,x2].
+			y = y2-y1;
+			if(fabs(y) >= 0.0001)	// Avoid division by (near) zero
+				x1 = x1 - y1*(x2-x1)/(y2-y1);
+			// else: keep the refined bisection result in x1
 			
 			LSP[found]=x1;
 			found++;
