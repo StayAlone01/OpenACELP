@@ -44,7 +44,7 @@ void Autocorr(int16_t *spch, int32_t *r)
 	// If r[0] overflows int32_t, divide the signal by 4
 	do
 	{
-		ovf = 0;
+		ovf = 0; // Overflow flag
 		tmp = 0;
 		
 		for(uint16_t i=0; i<LPC_WINDOW_SIZ; i++)

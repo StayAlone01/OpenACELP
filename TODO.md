@@ -82,7 +82,7 @@ Legend:
 - [ ] Post-processing (×2 with saturation)
 - [ ] Error concealment (`BFI` handling, [1] cl. 4.2.3.2)
 
-## 11. Channel coding / decoding ([1] cl. 5 & 6) — for a full TETRA-compatible bit stream
+## 11. Channel coding / decoding ([1] cl. 5 & 6) — Decide later for the real implementation.
 
 - [ ] CRC codes (speech frame classes)
 - [ ] 16-state RCPC mother code of rate 1/3
