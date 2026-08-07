@@ -243,10 +243,12 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	Speech_Pre_Process(speech, spch_out);
 	memcpy(spch_in, spch_out, WINDOW_SIZ*sizeof(int16_t));		// Swap buffers
 	memcpy(spch_tmp, spch_out, FRAME_SIZ*sizeof(int16_t));		// Save pre-processed frame for later
-	Window_Speech(spch_in, spch_out);
+	// LPC analysis window: buffer[LPC_WINDOW_OFF .. LPC_WINDOW_OFF+LPC_WINDOW_SIZ-1]
+	// = present frame[24..239] (216) + look-ahead[0..39] (40)
+	Window_Speech(&spch_in[LPC_WINDOW_OFF], &spch_out[LPC_WINDOW_OFF]);
 	
 	// Compute LSPs for actual frame
-	Autocorr(spch_out, r);
+	Autocorr(&spch_out[LPC_WINDOW_OFF], r);
 	LD_Solver(r, &lp[3][0]);
 	LP_LSP(lsp_prev, &lp[3][0], lsp_this);
 	

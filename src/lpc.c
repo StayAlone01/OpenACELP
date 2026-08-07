@@ -1,13 +1,13 @@
 #include "openacelp_internal.h"
 
 // Analysis window coefficients — defined here, externed in header
-float w[WINDOW_SIZ];
+float w[LPC_WINDOW_SIZ];
 
 // Compute the modified Hamming window w(n) coeffs for speech analysis
 void Analysis_Window_Init(float *w)
 {
 	uint16_t L2 = LOOK_AHEAD;		// 40 samples look ahead
-	uint16_t L1 = FRAME_SIZ;		// 240 samples
+	uint16_t L1 = L1_SIZ;		// 216 samples
 	
 	for(uint16_t i=0; i<L1; i++)
 	{
@@ -20,9 +20,10 @@ void Analysis_Window_Init(float *w)
 }
 
 // Multiply processed speech samples with modified Hamming window
+// Caller passes pointers to the LPC window region (offset LPC_WINDOW_OFF, length LPC_WINDOW_SIZ)
 void Window_Speech(int16_t *inp, int16_t *outp)
 {
-	for(uint16_t i=0; i<WINDOW_SIZ; i++)
+	for(uint16_t i=0; i<LPC_WINDOW_SIZ; i++)
 		outp[i] = inp[i] * w[i];
 }
 
@@ -46,14 +47,14 @@ void Autocorr(int16_t *spch, int32_t *r)
 		ovf = 0;
 		tmp = 0;
 		
-		for(uint16_t i=0; i<WINDOW_SIZ; i++)
+		for(uint16_t i=0; i<LPC_WINDOW_SIZ; i++)
 		{
 			tmp += (int64_t)spch[i] * (int64_t)spch[i];
 		
 			if(tmp > (int64_t)INT32_MAX)	// Overflow occured?
 			{
 				// Divide the signal by 4
-				for(uint16_t j=0; j<WINDOW_SIZ; j++)
+				for(uint16_t j=0; j<LPC_WINDOW_SIZ; j++)
 					spch[j] /= 4;
 				
 				ovf = 1;
@@ -86,8 +87,8 @@ void Autocorr(int16_t *spch, int32_t *r)
 	// r[1]..r[10] calculation
 	for(uint8_t i=1; i<=10; i++)
 	{
-		for(uint16_t j=0; j<WINDOW_SIZ; j++)
-			r[i] += spch[j] * spch[j-i];
+		for(uint16_t j=0; j<LPC_WINDOW_SIZ-i; j++)
+			r[i] += spch[j] * spch[j+i];
 			
 		// Normalize
 		for(uint8_t j=0; j<norm_shift; j++)
@@ -107,7 +108,7 @@ void Autocorr(int16_t *spch, int32_t *r)
 	
 	for(uint8_t i=1; i<=10; i++)
 	{
-		w_lag[i] = exp(-0.5 * (2.0 * M_PI * 60.0 * i)/(8000.0));
+		w_lag[i] = exp(-0.5 * (2.0 * M_PI * 60.0 * i / 8000.0) * (2.0 * M_PI * 60.0 * i / 8000.0));
 		w_lag[i] /= 1.00005;
 	}
 	

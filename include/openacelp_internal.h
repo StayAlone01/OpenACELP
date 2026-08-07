@@ -17,19 +17,23 @@
 #include "LSP_codebooks.h"
 
 // Global consts
-#define FRAME_SIZ		240							// Voice frame samples number, 0.03s*8000Hz
-#define LOOK_AHEAD		40							// 40 samples of look-ahead for the LPC analysis
-#define WINDOW_SIZ		(FRAME_SIZ+LOOK_AHEAD)		// Window for LPC analysis samples number
+#define FRAME_SIZ		  240							// Voice frame samples number, 30ms * 8000Hz = 240 samples
+#define L1_SIZ	      216             // 216 samples from the present frame for the LPC analysis
+#define LOOK_AHEAD		    40							// 40 samples of look-ahead for the LPC analysis
+#define WINDOW_SIZ		(FRAME_SIZ+LOOK_AHEAD)		// 280: encoder input buffer (present frame + look-ahead)
+#define LPC_WINDOW_SIZ	(L1_SIZ+LOOK_AHEAD)			// 256: LPC analysis window
+#define LPC_WINDOW_OFF	(FRAME_SIZ-L1_SIZ)			// 24: window start offset inside the input buffer
 #define SUBFRAME_SIZ	(FRAME_SIZ/4)				// Subframe length in samples
-#define ALPHA			(float)32735.0/32768.0		// Alpha coeff for the pre-processing filter
-#define GRID_SIZ		60							// Grid granularity for LSP computation
+#define ALPHA			    (float)32735.0/32768.0		// Alpha coeff for the pre-processing filter
+#define GRID_SIZ		  60							// Grid granularity for LSP computation
+
 
 //#define DEBUG										// Comment it out later
 //#define OVF_INFO
 #define ERRORS
 
 //-----------------------------Global vars (extern)-----------------------------
-extern float		w[WINDOW_SIZ];					// Modified Hamming window w(n) coeffs for speech analysis
+extern float		w[LPC_WINDOW_SIZ];				// Modified Hamming window w(n) coeffs for speech analysis
 extern float		grid[GRID_SIZ];					// Grid of values for LSP computation
 
 extern int16_t		prev_spch_frame[FRAME_SIZ];		// Previous speech frame
