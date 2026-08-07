@@ -75,9 +75,10 @@ void Autocorr(int16_t *spch, int32_t *r)
 	
 	// r[0] normalization to the int32_t limit
 	// Multiply by 2 until we can't no more
+	// Guard r[0]>0: a silent frame (r[0]==0) would otherwise loop forever (0*2==0)
 	for(uint8_t i=0; i<32; i++)
 	{
-		while(r[0] < (INT32_MAX/2-1))
+		while(r[0] > 0 && r[0] < (INT32_MAX/2-1))
 		{
 			r[0]*=2;
 			norm_shift++;
