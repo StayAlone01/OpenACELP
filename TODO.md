@@ -98,7 +98,7 @@ Legend:
 - [ ] WAV/Raw file I/O polish; CLI encode/decode tools
 - [ ] STM32 Cortex-M7 (FPU) optimization pass + profiling
 - [ ] `scripts/` cleanup: LBG (`lbg.c`, `q_codebook_generator.py`) and `sound_process.sh` integration with final codebooks
-
+- [ ] Optimization for different platforms (memory footprint, speed, etc.)
 ---
 
 ## Quick summary of remaining work
