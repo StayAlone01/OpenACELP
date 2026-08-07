@@ -1,8 +1,8 @@
 #include "openacelp_internal.h"
 
-//input speech signal pre-processing
-//y[i] = x[i]/2 - x[i-1]/2 + alpha * y[i-1]
-//arg1: present frame, arg2: output
+// Pre Processing: Offset compensation filter (4.2.1)
+// y[i] = x[i]/2 - x[i-1]/2 + alpha * y[i-1]
+// arg1: present frame, arg2: output
 void Speech_Pre_Process(int16_t *inp, int16_t *outp)
 {
 	#ifdef ERRORS

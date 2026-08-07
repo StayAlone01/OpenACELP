@@ -11,17 +11,17 @@
 # SP5WWP 07/04/2020
 #-----------------------------------------------------------
 
-#retain generated WAV files?
+# Retain generated WAV files?
 retain=$1
 
 echo "Processing..."
 
-#convert all .sph files to .wav
-#do it if the .wav file doesn't exist already
-#trim out the crap (20s on both ends)
-#of course some windowing should be added
-#to avoid sudden signal changes,
-#but we can live with that
+# Convert all .sph files to .wav
+# Do it if the .wav file doesn't exist already
+# Trim out the crap (20s on both ends)
+# Of course some windowing should be added
+# To avoid sudden signal changes,
+# But we can live with that
 for f in *.sph
 do
 	if [ ! -f "${f%.*}.wav" ]
@@ -30,7 +30,7 @@ do
 	fi
 done
 
-#normalize to -1dB
+# Normalize to -1dB
 for f in *.wav
 do
 	sox --norm=-1 "$f" "${f%.*}_new.wav"
@@ -38,8 +38,8 @@ do
 	mv "${f%.*}_new.wav" "$f"
 done
 
-#lowpass at 3.4kHz, 4 passes
-#maybe sox would be better here
+# Lowpass at 3.4kHz, 4 passes
+# Maybe sox would be better here
 for f in *.wav
 do
 	for passes in {1..4}
@@ -50,7 +50,7 @@ do
 	done
 done
 
-#resample to 8000Hz
+# Resample to 8000Hz
 for f in *.wav
 do
 	echo "$f"
@@ -59,14 +59,14 @@ do
 	mv "${f%.*}_new.wav" "$f"
 done
 
-#merge all pieces into one and add noise
-#it is needed, so the autocorrelator
-#won't go crazy at longer silence periods
+# Merge all pieces into one and add noise
+# It is needed, so the autocorrelator
+# Won't go crazy at longer silence periods
 echo "Post processing..."
 sox $(ls *.wav) corpus.wav
 sox corpus.wav -p synth whitenoise vol 0.001 | sox -m corpus.wav - corpus.raw
 
-#delete old WAVs
+# Delete old WAVs
 if [ $retain == 0 ]
 then
 	rm *.wav

@@ -3,15 +3,15 @@
 // The LSPs are in the cosine domain [-1, 1]. Refer to
 // ETSI EN 300-395-2, chapter 4.2.2.3.
 //
-// codebook		  vector dimension		number of vectors
+// Codebook		  vector dimension		number of vectors
 //     1		3 -   {q1, q2, q3}		  256 (8 bits)
 //     2		3 -   {q4, q5, q6}		  512 (9 bits)
 //     3		4 - {q7, q8, q9, q10}	  512 (9 bits)
 //
 // This set of codebooks was generated using TED-LIUM release 1
-// using py-lbg - Linde-Buzo-Gray (LBG) algorithm.
+// Using py-lbg - Linde-Buzo-Gray (LBG) algorithm.
 // It's a test release trained with approximately 44 minutes
-// of speech (FrankGehry_1990.sph).
+// Of speech (FrankGehry_1990.sph).
 // Generation time: 2 hours 24 minutes
 // 2x Intel Xeon X5365 @ 3GHz
 //
@@ -21,16 +21,16 @@
 #ifndef LSP_CODEBOOKS
 #define LSP_CODEBOOKS
 
-//dimensions
+// Dimensions
 #define dim_cb1		3
 #define dim_cb2		3
 #define dim_cb3		4
-//sizes
+// Sizes
 #define size_cb1	256
 #define size_cb2	512
 #define size_cb3	512
 
-//1st codebook
+// 1st codebook
 static float cb1[dim_cb1*size_cb1] =
 {
 0.9860407886647449, 0.9602085033621519, 0.8586016839577316,
@@ -291,7 +291,7 @@ static float cb1[dim_cb1*size_cb1] =
 0.9277901428571428, 0.7991137142857143, 0.6508225714285715
 };
 
-//2nd codebook
+// 2nd codebook
 static float cb2[dim_cb2*size_cb2] =
 {
 0.6897443173076923, 0.49764791346153847, 0.09442785576923075,
@@ -808,7 +808,7 @@ static float cb2[dim_cb2*size_cb2] =
 0.378252, 0.15033176923076924, -0.09046807692307693
 };
 
-//3rd codebook
+// 3rd codebook
 static float cb3[dim_cb3*size_cb3] =
 {
 -0.31540544871794857, -0.5886965555555553, -0.8088489017094018, -0.9499750641025639,

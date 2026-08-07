@@ -3,16 +3,16 @@
 #include "openacelp.h"
 #include "openacelp_internal.h"
 
-//frame counter — defined here, externed in header
+// Frame counter — defined here, externed in header
 uint64_t frame = 0;
 
-//main routine
-//argv[1]: file name (RAW, signed 16-bit, Little-Endian, 8000Hz)
+// Main routine
+// Argv[1]: file name (RAW, signed 16-bit, Little-Endian, 8000Hz)
 int main(uint8_t argc, uint8_t *argv[])
 {
 	FILE *aud;
 	
-	int16_t spch[WINDOW_SIZ];			//this frame
+	int16_t spch[WINDOW_SIZ];			// This frame
 	
 	if(argc==2)
 	{
@@ -28,15 +28,15 @@ int main(uint8_t argc, uint8_t *argv[])
 		}
 		else
 		{			
-			//initialize consts etc.
+			// Initialize consts etc.
 			ACELP_Init(grid, w, prev_spch_frame, prev_w_spch_frame);
 			
-			//load 30ms frames, overlapping
+			// Load 30ms frames, overlapping
 			while(fread(spch, 2, WINDOW_SIZ, aud)==WINDOW_SIZ)
 			{
 				frame++;
 				
-				//take us 40 samples back (40 samples * sizeof(int16_t))
+				// Take us 40 samples back (40 samples * sizeof(int16_t))
 				fseek(aud, -80, 1);
 				
 				//printf("Frame %d\n", frame);

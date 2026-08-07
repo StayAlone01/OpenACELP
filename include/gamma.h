@@ -1,10 +1,10 @@
-//spectral expansion coeffs "gamma"
-//refer to ETSI EN 300-395-2
+// Spectral expansion coeffs "gamma"
+// Refer to ETSI EN 300-395-2
 
 #ifndef GAMMA_SET
 #define GAMMA_SET
 
-//gamma_1 = 0.75
+// Gamma_1 = 0.75
 static const float gamma_1[10] = 
 {
 	0.75,
@@ -19,7 +19,7 @@ static const float gamma_1[10] =
 	0.056313514709473
 };
 
-//gamma_2 = 0.85
+// Gamma_2 = 0.85
 static const float gamma_2[10] = 
 {
 	0.85,
@@ -34,7 +34,7 @@ static const float gamma_2[10] =
 	0.196874404340723
 };
 
-//gamma_3 = 0.95
+// Gamma_3 = 0.95
 static const float gamma_3[10] = 
 {
 	0.95,
@@ -49,7 +49,7 @@ static const float gamma_3[10] =
 	0.598736939238379
 };
 
-//gamma_4 = 0.60
+// Gamma_4 = 0.60
 static const float gamma_4[10] = 
 {
 	0.6,

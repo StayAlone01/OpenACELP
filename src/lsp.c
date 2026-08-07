@@ -1,9 +1,9 @@
 #include "openacelp_internal.h"
 
-//LSP search grid — defined here, externed in header
+// LSP search grid — defined here, externed in header
 float grid[GRID_SIZ];
 
-//generate grid of values for LSP computation
+// Generate grid of values for LSP computation
 void Grid_Generate(float *g)
 {
 	g[0] = 1.0;
@@ -13,12 +13,12 @@ void Grid_Generate(float *g)
 		g[i] = cos((M_PI*i)/GRID_SIZ);
 }
 
-//LSP F(z) polynomial evaluation using Chebyshev polynomials
-//arg1: input value, arg2: f() coeffs
-//retval: evaluated value
+// LSP F(z) polynomial evaluation using Chebyshev polynomials
+// Arg1: input value, arg2: f() coeffs
+// Retval: evaluated value
 float Chebyshev_Eval(float x, float *f)
 {
-	uint8_t n=5;	//coeffs num
+	uint8_t n=5;	// Coeffs num
 	
 	float b0, b1, b2;
 	
@@ -35,18 +35,18 @@ float Chebyshev_Eval(float x, float *f)
 	return x*b1 - b2 + 0.5*f[n];
 }
 
-//convert LP to LSP
-//arg1: previous frame LSP array, arg2: present frame LP array, arg3: output LSP array
+// Convert LP to LSP
+// Arg1: previous frame LSP array, arg2: present frame LP array, arg3: output LSP array
 void LP_LSP(float *prev_LSP, float *a, float *LSP)
 {
 	float f1[6] = {1.0, 0, 0, 0, 0, 0};
 	float f2[6] = {1.0, 0, 0, 0, 0, 0};
-	float *coefs;							//coeff set that we are using
-	uint8_t found=0;						//found roots
-	uint8_t loc=0;							//location in the grid
-	float x1, x2, y1, y2, xm, ym, x, y;		//vals for root search
+	float *coefs;							// Coeff set that we are using
+	uint8_t found=0;						// Found roots
+	uint8_t loc=0;							// Location in the grid
+	float x1, x2, y1, y2, xm, ym, x, y;		// Vals for root search
 
-	//5 polynomial coeffs
+	// 5 polynomial coeffs
 	for(uint8_t i=0; i<5; i++)
  	{
 		f1[i+1] = a[i+1] + a[10-i] - f1[i];
@@ -54,60 +54,60 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 	}
 	
 	#ifdef DEBUG
-	//evaluation of the polynomial - root search
+	// Evaluation of the polynomial - root search
 	printf("\n");
 	for(uint8_t i=0; i<GRID_SIZ; i++)
 		;//printf("%f\n", Chebyshev_Eval(grid[i], f2));
 	#endif
 	
-	//look for roots in f1 first
+	// Look for roots in f1 first
 	coefs = f1;
 	
-	//search init
+	// Search init
 	x1 = grid[0];
 	y1 = Chebyshev_Eval(x1, coefs);
 	
-	//search for the roots
-	//until we have 10 or we have searched thru all the grid values (0..pi)
+	// Search for the roots
+	// Until we have 10 or we have searched thru all the grid values (0..pi)
 	while(found<10 && loc<GRID_SIZ)
 	{
-		loc++;	//move thru the grid
+		loc++;	// Move thru the grid
 		
 		x2 = x1;
 		y2 = y1;
 		x1 = grid[loc];
 		y1 = Chebyshev_Eval(x1, coefs);
 		
-		//check for a sign change
+		// Check for a sign change
 		if(y1*y2 <= 0)
 		{
-			//divide the range 4 times
+			// Divide the range 4 times
 			for(uint8_t i=0; i<4; i++)
       		{
         		xm = 0.5 * (x1+x2);
         		ym = Chebyshev_Eval(xm, coefs);
   				
-  				//sign change in the lower half?
+  				// Sign change in the lower half?
 				if(y1*ym <= 0)
         		{
-        			//move there
-          			y2 = ym;
-          			x2 = xm;
-        		}
-        		//same thing here - zero crossing in the second half?
+         			// Move there
+           			y2 = ym;
+           			x2 = xm;
+         		}
+         		// Same thing here - zero crossing in the second half?
         		else
         		{
-        			//move there
+         			// Move there
           			y1 = ym;
           			x1 = xm;
         		}
         	}
         	
-        	//linear interpolation for the fine root value
+        	// Linear interpolation for the fine root value
         	x = x2-x1;
         	y = y2-y1;
         	
-			if(fabs(y)<0.0001)	//unsafe to compare floats to 0.0
+			if(fabs(y)<0.0001)	// Unsafe to compare floats to 0.0
 				x = x1;
 			else
 			{
@@ -123,7 +123,7 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 			printf("%f|%f|%d|%f\n", x1, y2, loc, 8000.0/(2*M_PI)*acos(x1));
 			#endif
 			
-			//swap f1 with f2 and vice-versa, for next search
+			// Swap f1 with f2 and vice-versa, for next search
 			if(coefs == f1)
 			{
 				coefs = f2;
@@ -134,12 +134,12 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
   	    	}
 		}
         	
-		//apply new value of y1
+		// Apply new value of y1
 		y1 = Chebyshev_Eval(x1, coefs);
 	}
 	
-	//check if we have found all 10 roots
-	//if not - copy old roots and use them
+	// Check if we have found all 10 roots
+	// If not - copy old roots and use them
 	if(found<10 && prev_LSP!=NULL)
 	{
 		memcpy(LSP, prev_LSP, 10*sizeof(float));
@@ -149,9 +149,9 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 	}
 }
 
-//split vector quantization of LSP parameters
-//full codebook search with squared error metric (saving one division)
-//arg1: LSPs in cosine domain (10), arg2: quantized LSPs output (10), arg3: codebook indices output (3)
+// Split vector quantization of LSP parameters
+// Full codebook search with squared error metric (saving one division)
+// Arg1: LSPs in cosine domain (10), arg2: quantized LSPs output (10), arg3: codebook indices output (3)
 void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind)
 {
 	uint16_t ind_rv[3];
@@ -160,7 +160,7 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind)
 	float delta;
 	float min=10000.0;
 	
-	//codebook 1 search
+	// Codebook 1 search
 	for(uint16_t i=0; i<size_cb1; i++)
 	{
 		se=0.0;
@@ -180,7 +180,7 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind)
 	    
 	min=10000.0;
 	
-	//codebook 2 search
+	// Codebook 2 search
 	for(uint16_t i=0; i<size_cb2; i++)
 	{		
 		se=0.0;
@@ -200,7 +200,7 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind)
 	  
 	min=10000.0;
 	
-	//codebook 3 search
+	// Codebook 3 search
 	for(uint16_t i=0; i<size_cb3; i++)
 	{
 		se=0.0;
@@ -218,17 +218,17 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind)
 		}
 	}
 	
-	//return quantized vector...
+	// Return quantized vector...
 	memcpy(&q_lsp[0], &cb1[ind_rv[0]], 3*sizeof(float));
 	memcpy(&q_lsp[3], &cb2[ind_rv[1]], 3*sizeof(float));
 	memcpy(&q_lsp[6], &cb3[ind_rv[2]], 4*sizeof(float));
 	
-	//...and codebook indices
+	// ...and codebook indices
 	memcpy(ind, ind_rv, 3*sizeof(uint16_t));
 }
 
-//convert LSP coeffs to F1(z) or F2(z)
-//arg1: LSP array of length 10, arg2: F_1(z) or F_2(z) coefficients output
+// Convert LSP coeffs to F1(z) or F2(z)
+// Arg1: LSP array of length 10, arg2: F_1(z) or F_2(z) coefficients output
 void LSP_Poly(float *lsp, float *f)
 {
 	uint8_t k=0;
@@ -246,20 +246,20 @@ void LSP_Poly(float *lsp, float *f)
 			if(j>1)
 				f[j] = f[j] - 2.0*lsp[k]*f[j-1] + f[j-2];
 			else
-				f[j] = f[j] - 2.0*lsp[k]*f[j-1];	//f(-1)=0
+				f[j] = f[j] - 2.0*lsp[k]*f[j-1];	// F(-1)=0
 		}
 		
 		k+=2;
 	}
 }
 
-//convert LSP to LP (A(z))
-//arg1: input LSP array, arg2: computed LP array
+// Convert LSP to LP (A(z))
+// Arg1: input LSP array, arg2: computed LP array
 void LSP_LP(float *lsp, float *a)
 {
 	float f1[6], f2[6];
 	
-	//get F1(z) and F2(z) coeffs
+	// Get F1(z) and F2(z) coeffs
 	LSP_Poly(&lsp[0], f1);
 	LSP_Poly(&lsp[1], f2);
 	
@@ -279,10 +279,10 @@ void LSP_LP(float *lsp, float *a)
 	}
 }
 
-//initialize "previous" frame LSP vectors
-//arg1: array of LSP unquantized vectors
-//arg2: array of quantized LSP vectors
-//order of args doesnt matter
+// Initialize "previous" frame LSP vectors
+// Arg1: array of LSP unquantized vectors
+// Arg2: array of quantized LSP vectors
+// Order of args doesnt matter
 void Init_LSP(float *in1, float *in2)
 {
 	in1[0] = in2[0] = 30000.0/32768.0;

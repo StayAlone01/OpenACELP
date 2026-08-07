@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 
-//enough to hold a 4-D vector
+// Enough to hold a 4-D vector
 struct vec
 {
 	float x;
@@ -13,15 +13,15 @@ struct vec
 	float a;
 };
 
-//input data set
+// Input data set
 struct vec data_in[10000000];
 
-//codebooks (arrays of vectors)
+// Codebooks (arrays of vectors)
 struct vec q1[256];
 struct vec q2[512];
 struct vec q3[512];
 
-//512 dynamic length arrays for Voronoi cell vector binning ("partitions")
+// 512 dynamic length arrays for Voronoi cell vector binning ("partitions")
 typedef struct
 {
 	struct vec *array;
@@ -30,7 +30,7 @@ typedef struct
 } Array;
 
 Array partition[512];
-uint32_t part_count[512];		//their element counters
+uint32_t part_count[512];		// Their element counters
 
 void initArray(Array *a, size_t initialSize)
 {
@@ -58,8 +58,8 @@ void freeArray(Array *a)
 }
 //------------------------------------------------------------------------
 
-//distance (squared) between vectors
-//arg1: input vector, arg2: input vector, arg3: dimension = {3, 4}
+// Distance (squared) between vectors
+// Arg1: input vector, arg2: input vector, arg3: dimension = {3, 4}
 float distance(struct vec *inp_vector1, struct vec *inp_vector2, uint8_t dimension)
 {
 	if(dimension==3)
@@ -90,8 +90,8 @@ float distance(struct vec *inp_vector1, struct vec *inp_vector2, uint8_t dimensi
 	}
 }
 
-//average distance (squared) between a set of vectors and a vector
-//arg1: input vector, arg2: input vector set, arg3: input vector set count, arg4: dimension = {3, 4}
+// Average distance (squared) between a set of vectors and a vector
+// Arg1: input vector, arg2: input vector set, arg3: input vector set count, arg4: dimension = {3, 4}
 float distance_set(struct vec *inp_vector, struct vec *inp_data, uint32_t count, uint8_t dimension)
 {
 	float tmp=0.0;
@@ -105,8 +105,8 @@ float distance_set(struct vec *inp_vector, struct vec *inp_data, uint32_t count,
 	return tmp/count;
 }
 
-//compute centroid of a set of vectors
-//arg1: output vector, arg2: vector count, arg3: set of vectors, arg4: dimension
+// Compute centroid of a set of vectors
+// Arg1: output vector, arg2: vector count, arg3: set of vectors, arg4: dimension
 void centroid(struct vec *out, struct vec *inp_data, uint32_t count, uint8_t dimension)
 {
 	float sum_x=0.0;
@@ -144,7 +144,7 @@ void centroid(struct vec *out, struct vec *inp_data, uint32_t count, uint8_t dim
 	}
 }
 
-//multiply vector by (1.0+e)
+// Multiply vector by (1.0+e)
 void vec_mult(struct vec *out, float e, struct vec *inp)
 {	
 	out->x = inp->x * (1.0 + e);
@@ -161,7 +161,7 @@ int main(void)
 	
 	memset(part_count, 0, 512*sizeof(uint32_t));
 
-	//test data set
+	// Test data set
 	data_in[0].x=0.99;
 	data_in[0].y=0.0;
 	data_in[0].z=0.0;
@@ -172,13 +172,13 @@ int main(void)
 	
 	data_count=2;
 	
-	//codebook ^q1 = {q1, q2, q3}
-	//initial iteration
+	// Codebook ^q1 = {q1, q2, q3}
+	// Initial iteration
 	centroid(&q1[0], data_in, data_count, 3);
 	
 	printf("q[0] = ( %f, %f, %f )\n\n", q1[0].x, q1[0].y, q1[0].z);
 	
-	//first split
+	// First split
 	vec_mult(&q1[1], epsilon, &q1[0]);
 	vec_mult(&q1[0], -epsilon, &q1[0]);
 	cell_count++;
@@ -186,13 +186,13 @@ int main(void)
 	printf("q1[0] = ( %f, %f, %f )\n", q1[0].x, q1[0].y, q1[0].z);
 	printf("q1[1] = ( %f, %f, %f )\n\n", q1[1].x, q1[1].y, q1[1].z);
 	
-	//iteration 2
+	// Iteration 2
 	for(uint32_t i=0; i<data_count; i++)
 	{
 		float min=20e6;
-		uint32_t c=0;	//which codeword is the closest
+		uint32_t c=0;	// Which codeword is the closest
 		
-		//for every codeword
+		// For every codeword
 		for(uint16_t j=0; j<cell_count; j++)
 		{		
 			float tmp=distance(&q1[j], &data_in[i], 3);
@@ -204,11 +204,11 @@ int main(void)
 			}
 		}
 		
-		//move input data to a "bin"
+		// Move input data to a "bin"
 		insertArray(&partition[c], &data_in[i]);
 	}
 	
-	//recalculate codewords
+	// Recalculate codewords
 	centroid(&q1[2], &partition[0].array[0], partition[0].used, 3);
 	centroid(&q1[3], &partition[1].array[0], partition[1].used, 3);
 	

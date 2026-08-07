@@ -1,13 +1,13 @@
 #include "openacelp_internal.h"
 
-//analysis window coefficients — defined here, externed in header
+// Analysis window coefficients — defined here, externed in header
 float w[WINDOW_SIZ];
 
-//compute the modified Hamming window w(n) coeffs for speech analysis
+// Compute the modified Hamming window w(n) coeffs for speech analysis
 void Analysis_Window_Init(float *w)
 {
-	uint16_t L2 = LOOK_AHEAD;		//40 samples look ahead
-	uint16_t L1 = FRAME_SIZ;		//240 samples
+	uint16_t L2 = LOOK_AHEAD;		// 40 samples look ahead
+	uint16_t L1 = FRAME_SIZ;		// 240 samples
 	
 	for(uint16_t i=0; i<L1; i++)
 	{
@@ -19,28 +19,28 @@ void Analysis_Window_Init(float *w)
 	}
 }
 
-//multiply processed speech samples with modified Hamming window
+// Multiply processed speech samples with modified Hamming window
 void Window_Speech(int16_t *inp, int16_t *outp)
 {
 	for(uint16_t i=0; i<WINDOW_SIZ; i++)
 		outp[i] = inp[i] * w[i];
 }
 
-//autocorrelation r(k) computation, k=0..10
-//additional bandwidth expansion f=60Hz for f_s=8000Hz sample rate
+// Autocorrelation r(k) computation, k=0..10
+// Additional bandwidth expansion f=60Hz for f_s=8000Hz sample rate
 void Autocorr(int16_t *spch, int32_t *r)
 {
 	uint8_t ovf;
-	int64_t tmp;				//for a[0] computation
-	uint8_t norm_shift = 0;		//shifts left needed to normalize r[]
+	int64_t tmp;				// For a[0] computation
+	uint8_t norm_shift = 0;		// Shifts left needed to normalize r[]
 
-	//initially, set r[0]=1 to avoid r[] containing only zeros
-	//and zero out the rest
+	// Initially, set r[0]=1 to avoid r[] containing only zeros
+	// And zero out the rest
 	r[0]=1;
 	memset(&r[1], 0, 10*sizeof(int32_t));
 	
-	//r[0] calculation
-	//if r[0] overflows int32_t, divide the signal by 4
+	// r[0] calculation
+	// If r[0] overflows int32_t, divide the signal by 4
 	do
 	{
 		ovf = 0;
@@ -50,9 +50,9 @@ void Autocorr(int16_t *spch, int32_t *r)
 		{
 			tmp += (int64_t)spch[i] * (int64_t)spch[i];
 		
-			if(tmp > (int64_t)INT32_MAX)	//overflow occured?
+			if(tmp > (int64_t)INT32_MAX)	// Overflow occured?
 			{
-				//divide the signal by 4
+				// Divide the signal by 4
 				for(uint16_t j=0; j<WINDOW_SIZ; j++)
 					spch[j] /= 4;
 				
@@ -63,7 +63,7 @@ void Autocorr(int16_t *spch, int32_t *r)
 				printf("val=%lld\n", tmp);
 				#endif
 				
-				//break the "for" loop
+				// Break the "for" loop
 				break;
 			}
 		}
@@ -72,8 +72,8 @@ void Autocorr(int16_t *spch, int32_t *r)
 	
 	r[0] = (int32_t)tmp;
 	
-	//r[0] normalization to the int32_t limit
-	//multiply by 2 until we can't no more
+	// r[0] normalization to the int32_t limit
+	// Multiply by 2 until we can't no more
 	for(uint8_t i=0; i<32; i++)
 	{
 		while(r[0] < (INT32_MAX/2-1))
@@ -83,13 +83,13 @@ void Autocorr(int16_t *spch, int32_t *r)
 		}
 	}
 	
-	//r[1]..r[10] calculation
+	// r[1]..r[10] calculation
 	for(uint8_t i=1; i<=10; i++)
 	{
 		for(uint16_t j=0; j<WINDOW_SIZ; j++)
 			r[i] += spch[j] * spch[j-i];
 			
-		//normalize
+		// Normalize
 		for(uint8_t j=0; j<norm_shift; j++)
 			r[i] *= 2;
 	}
@@ -101,9 +101,9 @@ void Autocorr(int16_t *spch, int32_t *r)
 	printf("\n");
 	#endif
 	
-	//bandwidth expansion, f=60Hz, f_s=8000Hz
-	//r[0] is multiplied by 1.00005, which is equivalent to adding a noise floor at -43 dB
-	float w_lag[11]={1.0};	//window for bandwidth expansion, w_lag[0]=1.0
+	// Bandwidth expansion, f=60Hz, f_s=8000Hz
+	// r[0] is multiplied by 1.00005, which is equivalent to adding a noise floor at -43 dB
+	float w_lag[11]={1.0};	// Window for bandwidth expansion, w_lag[0]=1.0
 	
 	for(uint8_t i=1; i<=10; i++)
 	{
@@ -117,7 +117,7 @@ void Autocorr(int16_t *spch, int32_t *r)
 	printf("\n");
 	#endif
 	
-	//window the autocorrelation values
+	// Window the autocorrelation values
 	for(uint8_t i=0; i<11; i++)
 		r[i] *= w_lag[i];
 	
@@ -128,16 +128,16 @@ void Autocorr(int16_t *spch, int32_t *r)
 	#endif
 }
 
-//LP coefficients calculation
-//based on the Levison-Durbin algorithm
-//arg1: modified autocorrelation matrix, arg2: LP filter coeffs
+// LP coefficients calculation
+// Based on the Levison-Durbin algorithm
+// Arg1: modified autocorrelation matrix, arg2: LP filter coeffs
 void LD_Solver(int32_t *r, float *a)
 {
-	//previous frame coeffs - static variable!
+	// Previous frame coeffs - static variable!
 	static float prev_a[11] = {1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	
 	float k, alpha;
-	float at[11], an[11];	//t: this iteration, n: next iteration
+	float at[11], an[11];	// t: this iteration, n: next iteration
 	float sum;
 	
 	k = -(float)r[1] / r[0];
@@ -156,9 +156,9 @@ void LD_Solver(int32_t *r, float *a)
 		sum += (float)r[i];
 		k = -sum / alpha;
 		
-		//test for filter stability
-		//if case of instability, use previous coeffs
-		if(fabs(k) > 32750.0/32767.0)	//close enough to 1.0
+		// Test for filter stability
+		// If case of instability, use previous coeffs
+		if(fabs(k) > 32750.0/32767.0)	// Close enough to 1.0
 		{
 			memcpy(a, prev_a, 11*sizeof(float));
 			#ifdef ERRORS
@@ -167,7 +167,7 @@ void LD_Solver(int32_t *r, float *a)
 			return;
 		}
 		
-		//compute new coeffs
+		// Compute new coeffs
 		for(uint8_t j=1; j<=i-1; j++)
 		{
 			an[j] = at[j] + k*at[i-j];
@@ -182,10 +182,10 @@ void LD_Solver(int32_t *r, float *a)
 	prev_a[0]=1.0;
 	memcpy(&prev_a[1], &at[1], 10*sizeof(float));
 	
-	//return solution
+	// Return solution
 	if(a!=NULL)
 	{
-		a[0]=1.0;	//denominator of the H(z) is A(z)=1+sum(a*z)
+		a[0]=1.0;	// Denominator of the H(z) is A(z)=1+sum(a*z)
 		memcpy(&a[1], &at[1], 10*sizeof(float));
 	}
 	
