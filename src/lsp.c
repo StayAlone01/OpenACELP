@@ -54,6 +54,7 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 	// 5 polynomial coeffs
 	for(uint8_t i=0; i<5; i++)
  	{
+		// The 10 here means the 10th order LP filter, so the 10th order LSP polynomial
 		f1[i+1] = a[i+1] + a[10-i] - f1[i];
 		f2[i+1] = a[i+1] - a[10-i] + f2[i];
 	}
