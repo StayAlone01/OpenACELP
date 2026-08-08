@@ -44,7 +44,7 @@ Legend:
 ## 6. Long-term prediction analysis ([1] cl. 4.2.2.4, [2] cl. 2.3)
 
 - [x] Open-loop pitch search, once per frame (`Find_Pitch`, 3 ranges 20–39 / 40–79 / 80–142) — `(WIP)`
-- [X] **Fix TODO in `Find_Pitch`** — normalization loop is wrong (iterates over full frame with `ind[i]` thresholds instead of the 120-sample subset used in `C[k]` accumulation; pitch range boundary also questionable)
+- [x] **Fix TODO in `Find_Pitch`** — normalization loop is wrong (iterates over full frame with `ind[i]` thresholds instead of the 120-sample subset used in `C[k]` accumulation; pitch range boundary also questionable)
 - [ ] Closed-loop (adaptive codebook) search, once per sub-frame — **NOT implemented**
   - [ ] Adaptive codebook construction from past excitation (interpolation for fractional/whole delays; repetition when delay < sub-frame length)
   - [ ] Sub-frame adaptive codebook search with perceptually weighted synthesis (`MSE search`)

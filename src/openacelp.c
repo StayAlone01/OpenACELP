@@ -256,7 +256,7 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	LP_LSP(lsp_prev, &lp[3][0], lsp_this);
 	
 	// Quantize LSPs
-	LSP_SVQ(lsp_this, q_lsp_this, lsp_cb_indices);
+	LSP_SVQ(lsp_this, q_lsp_this, lsp_cb_indices, q_lsp_prev);
 	
 	// Interpolate quantized LSP vector for subframes 4,3,2,1 (indices are 3,2,1,0)
 	memcpy(q_lsp[3], q_lsp_this, 10*sizeof(float));

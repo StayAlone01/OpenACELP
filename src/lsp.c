@@ -75,7 +75,9 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 	
 	// Search for the roots
 	// Until we have 10 or we have searched thru all the grid values (0..pi)
-	while(found<10 && loc<GRID_SIZ)
+	// (<= : grid[GRID_SIZ] = q=-1.0 (w=pi) must be checked too, otherwise the
+	//  interval nearest to w=pi is skipped and the 10th LSP can be missed)
+	while(found<10 && loc<=GRID_SIZ)
 	{
 		loc++;	// Move thru the grid
 		
@@ -169,8 +171,9 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 
 // Split vector quantization of LSP parameters
 // Full codebook search with squared error metric (saving one division)
-// Arg1: LSPs in cosine domain (10), arg2: quantized LSPs output (10), arg3: codebook indices output (3)
-void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind)
+// Arg1: LSPs in cosine domain (10), arg2: quantized LSPs output (10),
+// Arg3: codebook indices output (3), arg4: previous frame quantized LSPs (10)
+void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev)
 {
 	uint16_t ind_rv[3];
 	
@@ -243,6 +246,20 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind)
 	
 	// ...and codebook indices
 	memcpy(ind, ind_rv, 3*sizeof(uint16_t));
+	
+	// The 3 sub-vectors are quantized independently, so the concatenated result
+	// is not guaranteed to preserve the LSP ordering (q1 > q2 > ... > q10 in the
+	// cosine domain). An unordered vector would make the synthesis filter 1/A(z)
+	// unstable, so fall back to the previous frame's quantized vector in that case.
+	for(uint8_t i=0; i<9; i++)
+	{
+		if(q_lsp[i] <= q_lsp[i+1])
+		{
+			if(q_lsp_prev != NULL)
+				memcpy(q_lsp, q_lsp_prev, 10*sizeof(float));
+			break;
+		}
+	}
 }
 
 // Convert LSP coeffs to F1(z) or F2(z)

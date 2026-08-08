@@ -58,7 +58,7 @@ void LD_Solver(int32_t *r, float *a);
 void Grid_Generate(float *g);
 float Chebyshev_Eval(float x, float *f);
 void LP_LSP(float *prev_LSP, float *a, float *LSP);
-void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind);
+void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev);
 void LSP_Poly(float *lsp, float *f);
 void LSP_LP(float *lsp, float *a);
 void Init_LSP(float *in1, float *in2);
