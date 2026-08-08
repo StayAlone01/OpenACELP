@@ -162,9 +162,11 @@ static void target_compute(const float *sw, const float *Aq, const float *f_mem,
 		x[n] = sw[n] - z[n];
 }
 
-// Filter one sub-frame's excitation u through 1/Aq(z/0.85) and update f_mem.
-// u is the excitation; for now it is the LP residual placeholder (plan D1).
-static void synth_mem_update(const float *u, const float *Aq, float *f_mem)
+// Filter one sub-frame's error signal (res - u) through 1/Aq(z/0.85) and update
+// the weighted-synthesis filter memory f_mem, as cl. 4.2.2.4/4.2.2.6 prescribe:
+// the memory is driven by the difference between the LP residual and the actual
+// quantized excitation.
+static void synth_mem_update(const float *err, const float *Aq, float *f_mem)
 {
 	float d[10];
 	denom_coeffs(Aq, d);
@@ -172,7 +174,7 @@ static void synth_mem_update(const float *u, const float *Aq, float *f_mem)
 	float out[SUBFRAME_SIZ];
 	for(int n = 0; n < SUBFRAME_SIZ; n++)
 	{
-		float acc = u[n];
+		float acc = err[n];
 		for(int i = 1; i <= 10; i++)
 		{
 			int idx = n - i;
@@ -350,95 +352,114 @@ static uint16_t encode_pitch(int16_t T0, int8_t frac_thirds, int sub, int16_t T1
 	}
 }
 
-// Long-term prediction analysis for one 30 ms frame (cl. 4.2.2.4): runs the
-// closed-loop search once per sub-frame and updates all the analysis state.
-// T0_ol is the open-loop pitch delay found once per frame.
-void Pitch_Analysis(Pitch_State *ps, const int16_t *sprime, float Aq[4][11], int16_t T0_ol)
+// Long-term prediction analysis for ONE sub-frame (cl. 4.2.2.4): LP residual,
+// perceptually weighted speech, search target, closed-loop pitch search,
+// adaptive codebook vector and pitch gain. The caller is responsible for the
+// excitation memory update (Excitation_Update, cl. 4.2.2.6) after the gains are
+// quantized. T0_ol is the open-loop pitch delay (used by sub-frame 0 only).
+// 'res' receives the LP residual of this sub-frame (needed by Excitation_Update
+// and by the standard's delay < 60 extension).
+void Pitch_Analysis_Sub(Pitch_State *ps, const int16_t *sprime, const float *Aq,
+                        int16_t T0_ol, int sub, float *res)
 {
-	float res[SUBFRAME_SIZ], sw[SUBFRAME_SIZ], x[SUBFRAME_SIZ];
+	float sw[SUBFRAME_SIZ], x[SUBFRAME_SIZ];
 	float h[SUBFRAME_SIZ], y[SUBFRAME_SIZ], v[SUBFRAME_SIZ];
 	int16_t T0;
 	int8_t frac;
 
-	for(int sub = 0; sub < NUM_PITCH_SUB; sub++)
+	// LP residual of this sub-frame (also the delay < 60 extension)
+	lp_residual(sprime, Aq, ps->s_mem, res);
+
+	// Perceptually weighted speech: W(z) = A(z)/A(z/0.85)
+	perceptual_weight(res, Aq, ps->w_mem, sw);
+
+	// Weighted synthesis impulse response: 1/A(z/0.85)
+	weighted_impulse(Aq, h);
+
+	// Search target: weighted speech minus zero-input response
+	target_compute(sw, Aq, ps->f_mem, x);
+
+	// Append this sub-frame's LP residual to the past-excitation buffer so
+	// delays < 60 can be extended by the LP residual (as the standard says).
+	// It is overwritten with the true quantized excitation by Excitation_Update.
+	memmove(&ps->exc_buf[0], &ps->exc_buf[SUBFRAME_SIZ],
+	        (EXC_MEM - SUBFRAME_SIZ) * sizeof(float));
+	memcpy(&ps->exc_buf[EXC_MEM - SUBFRAME_SIZ], res, SUBFRAME_SIZ * sizeof(float));
+
+	// Closed-loop pitch search: a limited window around the open-loop pitch
+	// (sub-frame 1) or around the first sub-frame's pitch (sub-frames 2-4),
+	// bounded by [MIN_PITCH, MAX_PITCH] (cl. 4.2.2.4, NOTE 2)
+	int lo, hi;
+	if(sub == 0)
 	{
-		const float *A = Aq[sub];
-		const int16_t *sp = &sprime[sub * SUBFRAME_SIZ];
-
-		// LP residual of this sub-frame (also the placeholder excitation, D1)
-		lp_residual(sp, A, ps->s_mem, res);
-
-		// Perceptually weighted speech: W(z) = A(z)/A(z/0.85)
-		perceptual_weight(res, A, ps->w_mem, sw);
-
-		// Weighted synthesis impulse response: 1/A(z/0.85)
-		weighted_impulse(A, h);
-
-		// Search target: weighted speech minus zero-input response
-		target_compute(sw, A, ps->f_mem, x);
-
-		// Append this sub-frame's excitation to the past-excitation buffer so
-		// delays < 60 can be extended by the LP residual (as the standard says)
-		memmove(&ps->exc_buf[0], &ps->exc_buf[SUBFRAME_SIZ],
-		        (EXC_MEM - SUBFRAME_SIZ) * sizeof(float));
-		memcpy(&ps->exc_buf[EXC_MEM - SUBFRAME_SIZ], res, SUBFRAME_SIZ * sizeof(float));
-
-		// Closed-loop pitch search: a limited window around the open-loop pitch
-		// (sub-frame 1) or around the first sub-frame's pitch (sub-frames 2-4),
-		// bounded by [MIN_PITCH, MAX_PITCH] (cl. 4.2.2.4, NOTE 2)
-		int lo, hi;
-		if(sub == 0)
+		lo = T0_ol - 2;
+		if(lo < MIN_PITCH) lo = MIN_PITCH;
+		hi = lo + 4;
+		if(hi > MAX_PITCH)
 		{
-			lo = T0_ol - 2;
-			if(lo < MIN_PITCH) lo = MIN_PITCH;
-			hi = lo + 4;
-			if(hi > MAX_PITCH)
-			{
-				hi = MAX_PITCH;
-				lo = hi - 4;
-			}
+			hi = MAX_PITCH;
+			lo = hi - 4;
 		}
-		else
+	}
+	else
+	{
+		lo = ps->T1 - 5;
+		if(lo < MIN_PITCH) lo = MIN_PITCH;
+		hi = lo + 9;
+		if(hi > MAX_PITCH)
 		{
-			lo = ps->T1 - 5;
-			if(lo < MIN_PITCH) lo = MIN_PITCH;
-			hi = lo + 9;
-			if(hi > MAX_PITCH)
-			{
-				hi = MAX_PITCH;
-				lo = hi - 9;
-			}
+			hi = MAX_PITCH;
+			lo = hi - 9;
 		}
-		closed_loop_search(ps, x, h, lo, hi, sub, &T0, &frac);
+	}
+	closed_loop_search(ps, x, h, lo, hi, sub, &T0, &frac);
 
-		// Adaptive codebook vector at the chosen delay
-		adaptive_vector(ps, T0, frac, v);
+	// Adaptive codebook vector at the chosen delay
+	adaptive_vector(ps, T0, frac, v);
 
-		// Filtered adaptive vector and pitch gain (eq. 25)
-		convolve_h(v, h, y);
-		float gp = pitch_gain(x, y);
+	// Filtered adaptive vector and pitch gain (eq. 25)
+	convolve_h(v, h, y);
+	float gp = pitch_gain(x, y);
 
-		// Store results for later stages (4.2.2.5/4.2.2.6) and the bitstream
-		memcpy(ps->v[sub], v, SUBFRAME_SIZ * sizeof(float));
-		ps->gp[sub] = gp;
-		ps->pitch_idx[sub] = encode_pitch(T0, frac, sub, ps->T1);
-		ps->T0[sub] = T0;
+	// Store results for later stages (4.2.2.5/4.2.2.6) and the bitstream
+	memcpy(ps->v[sub], v, SUBFRAME_SIZ * sizeof(float));
+	ps->gp[sub] = gp;
+	ps->pitch_idx[sub] = encode_pitch(T0, frac, sub, ps->T1);
+	ps->T0[sub] = T0;
 
-		// Innovation target for the codebook search (eq. 26):
-		// x2(n) = x(n) - gp*y(n)
-		for(int n = 0; n < SUBFRAME_SIZ; n++)
-			ps->x2[sub][n] = x[n] - gp*y[n];
+	// Innovation target for the codebook search (eq. 26):
+	// x2(n) = x(n) - gp*y(n)
+	for(int n = 0; n < SUBFRAME_SIZ; n++)
+		ps->x2[sub][n] = x[n] - gp*y[n];
 
-		if(sub == 0)
-			ps->T1 = T0;
-
-		// Update the weighted synthesis filter memory with this sub-frame's
-		// excitation (placeholder: the LP residual)
-		synth_mem_update(res, A, ps->f_mem);
+	if(sub == 0)
+		ps->T1 = T0;
 
 #ifdef PITCH_DEBUG
-		printf("frame=%llu sf=%d T0=%d frac=%d gp=%.3f idx=%u\n",
-		       (unsigned long long)frame, sub, T0, frac, gp, ps->pitch_idx[sub]);
+	printf("frame=%llu sf=%d T0=%d frac=%d gp=%.3f idx=%u\n",
+	       (unsigned long long)frame, sub, T0, frac, gp, ps->pitch_idx[sub]);
 #endif
-	}
+}
+
+// Excitation memory update (cl. 4.2.2.6): build the QUANTIZED excitation
+//   u(n) = gp_q*v(n) + gc_q*c'(n)
+// store it as the new past excitation (replacing the LP residual placeholder,
+// plan 4.2.2.4 D1 / 4.2.2.5 D3) and update the weighted-synthesis filter memory
+// with the residual error (res - u), as the standard prescribes.
+void Excitation_Update(Pitch_State *ps, const float *Aq, const float *res,
+                       const float *v, const float *c, float gp_q, float gc_q)
+{
+	float u[SUBFRAME_SIZ];
+	for(int n = 0; n < SUBFRAME_SIZ; n++)
+		u[n] = gp_q * v[n] + gc_q * c[n];
+
+	// New past excitation (newest samples at the end of the buffer)
+	memcpy(&ps->exc_buf[EXC_MEM - SUBFRAME_SIZ], u, SUBFRAME_SIZ * sizeof(float));
+
+	// Filter memory: filter (res - u) through 1/A(z/0.85); the error between
+	// the LP residual and the actual excitation drives the next target.
+	float err[SUBFRAME_SIZ];
+	for(int n = 0; n < SUBFRAME_SIZ; n++)
+		err[n] = res[n] - u[n];
+	synth_mem_update(err, Aq, ps->f_mem);
 }

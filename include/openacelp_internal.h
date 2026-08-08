@@ -15,6 +15,7 @@
 //-----------------------------ACELP includes & defines------------------------------
 #include "gamma.h"
 #include "LSP_codebooks.h"
+#include "gain_codebook.h"
 
 // Global consts
 #define FRAME_SIZ		  240							// Voice frame samples number, 30ms * 8000Hz = 240 samples
@@ -87,7 +88,10 @@ typedef struct
 
 void Pitch_Interp_Init(void);
 void Pitch_Init(Pitch_State *ps);
-void Pitch_Analysis(Pitch_State *ps, const int16_t *sprime, float Aq[4][11], int16_t T0_ol);
+void Pitch_Analysis_Sub(Pitch_State *ps, const int16_t *sprime, const float *Aq,
+                        int16_t T0_ol, int sub, float *res);
+void Excitation_Update(Pitch_State *ps, const float *Aq, const float *res,
+                       const float *v, const float *c, float gp_q, float gc_q);
 
 //-----------------------------Algebraic codebook (cl. 4.2.2.5)-----------------------------
 typedef struct
@@ -101,7 +105,22 @@ typedef struct
 } Codebook_State;
 
 void Codebook_Init(Codebook_State *cs);
-void Codebook_Analysis(Codebook_State *cs, const Pitch_State *ps, float Aq[4][11]);
+void Codebook_Analysis_Sub(Codebook_State *cs, const Pitch_State *ps,
+                           const float *Aq, int sub);
+
+//-----------------------------Gain quantization (cl. 4.2.2.6)-----------------------------
+typedef struct
+{
+	float	last_ener_pit;				// Last QUANTIZED pitch energy (log2 domain)
+	float	last_ener_cod;				// Last QUANTIZED code energy (log2 domain)
+	uint8_t	gain_idx[NUM_PITCH_SUB];	// 6-bit gain codebook indices (4 per frame)
+	float	gp[NUM_PITCH_SUB];			// Quantized pitch gains (final)
+	float	gc[NUM_PITCH_SUB];			// Quantized code gains (final)
+} Gain_State;
+
+void Gain_Init(Gain_State *gs);
+void Gain_Analysis_Sub(Gain_State *gs, const float *Aq, const float *v,
+                       const float *c, float gp, float gc, int sub);
 
 // Openacelp (top-level encode + helpers)
 void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t *prev_s, int16_t *prev_w_s);

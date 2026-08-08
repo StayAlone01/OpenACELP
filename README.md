@@ -24,6 +24,7 @@ I'm using TED-LIUM release 1 ([OpenSLR link](http://www.openslr.org/7/), [downlo
 | Open-loop pitch | Once per frame, 3 search ranges: 20–39, 40–79, 80–142 |
 | Closed-loop pitch | Per sub-frame, limited window around the open-loop pitch; integer search + ±1/3, ±2/3 fractional refinement (cl. 4.2.2.4) |
 | Algebraic codebook | 16-bit, 4 pulses (+√2, −1, +1, −1), dynamic shaping `F(z)=A(z/0.75)/A(z/0.85)`, focused search (cl. 4.2.2.5) |
+| Gain quantization | 2-D log2-energy VQ of `gp`/`gc`, 64-entry codebook (6 bits × 4 sub-frames = 24 bits/frame), cross-coupled energy prediction (cl. 4.2.2.6) |
 | Target platform | STM32 Cortex-M7 (hardware FPU) |
 
 ## Status
@@ -42,8 +43,9 @@ Implemented so far (encoder):
 - Open-loop pitch search
 - Closed-loop (adaptive) pitch search — per sub-frame, fractional resolution (cl. 4.2.2.4)
 - Algebraic (innovative) codebook search — 4 pulses, dynamic shaping, focused search (cl. 4.2.2.5)
+- Gain prediction + vector quantization of `gp`/`gc` — 2-D VQ, 6 bits/sub-frame, interleaved per sub-frame (cl. 4.2.2.6)
 
-Not yet implemented: gain prediction/VQ, bit packing (137-bit frame), decoder, channel coding.
+Not yet implemented: bit packing (137-bit frame), decoder, channel coding.
 
 ## Implementation notes (cl. 4.2.2.4)
 
@@ -65,8 +67,25 @@ Not yet implemented: gain prediction/VQ, bit packing (137-bit frame), decoder, c
 - The focused-search thresholds use the exact maximum 2- and 3-pulse correlations
   found prior to the search; the worst-case time counter (350) bounds the search
   (cl. 4.2.2.5).
-- The provisional codebook gain `gc = C/ε` (eq. 30) is computed and stored; its
-  quantization and final clamping belong to cl. 4.2.2.6.
+- The provisional codebook gain `gc = C/ε` (eq. 30) is computed and stored; it is
+  now quantized jointly with the pitch gain by the 4.2.2.6 stage.
+
+## Implementation notes (cl. 4.2.2.6)
+
+- `gp` and `gc` are quantized jointly in the log2-energy domain with a 64-entry 2-D
+  codebook (6 bits per sub-frame, 24 bits per frame). The energies are computed in
+  the **natural float log2 domain** (no fixed-point scaling offsets):
+  `e_p = log2(E_p·E_lpc)`, `e_c = log2(E_c·E_lpc)`, where `E_lpc` is the energy of
+  the impulse response of `1/A(z)`.
+- The prediction uses the **last quantized** energies, cross-coupled
+  (`0.5·last_pit + 0.25·last_cod − 3.0`, clamped at 0); the 2-D search minimizes the
+  squared error in the log2 domain.
+- The quantized gains build the true excitation `u = gp·v + gc·c'`, which updates the
+  adaptive-codebook memory **per sub-frame** (pitch → codebook → gains → excitation
+  update are interleaved), replacing the LP-residual placeholder from plans 4.2.2.4/5.
+- The gain codebook in `src/gain_codebook.c` is a **placeholder trained on synthetic
+  speech**; retrain it on a real corpus with `scripts/gain_codebook_generator.py`
+  (collect features with `make CFLAGS="... -DGAIN_TRAINING"`).
 
 ## Building
 

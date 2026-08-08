@@ -291,59 +291,58 @@ void Codebook_Init(Codebook_State *cs)
 	memset(cs->y2, 0, sizeof(cs->y2));
 }
 
-// Algebraic codebook analysis for one 30 ms frame (cl. 4.2.2.5): computes the
-// shaped code, runs the search per sub-frame and stores all the results.
-void Codebook_Analysis(Codebook_State *cs, const Pitch_State *ps, float Aq[4][11])
+// Algebraic codebook search for ONE sub-frame (cl. 4.2.2.5): shaping impulse
+// response, combined impulse response, backward filtering, correlation matrix,
+// focused search, shaped code vector and provisional codebook gain. All the
+// results are stored per sub-frame for the later gain quantization (4.2.2.6)
+// and the bitstream.
+void Codebook_Analysis_Sub(Codebook_State *cs, const Pitch_State *ps,
+                           const float *Aq, int sub)
 {
 	float F[SUBFRAME_SIZ], hprime[SUBFRAME_SIZ];
 	float d[SUBFRAME_SIZ];
+	const float *x2 = ps->x2[sub];
 
-	for(int sub = 0; sub < NUM_PITCH_SUB; sub++)
-	{
-		const float *A = Aq[sub];
-		const float *x2 = ps->x2[sub];
+	// Shaping impulse response (incl. fixed-gain pitch contribution)
+	shaping_impulse(Aq, ps->T0[sub], F);
 
-		// Shaping impulse response (incl. fixed-gain pitch contribution)
-		shaping_impulse(A, ps->T0[sub], F);
+	// Combined impulse response of the shaped weighted synthesis filter
+	combined_impulse(Aq, F, hprime);
 
-		// Combined impulse response of the shaped weighted synthesis filter
-		combined_impulse(A, F, hprime);
+	// Backward filtered target and correlation matrix of h'
+	backward_filter(x2, hprime, d);
+	corr_matrix(hprime);
 
-		// Backward filtered target and correlation matrix of h'
-		backward_filter(x2, hprime, d);
-		corr_matrix(hprime);
+	// Focused-search thresholds (exact maxima)
+	float max2, max3;
+	search_prescan(d, &max2, &max3);
 
-		// Focused-search thresholds (exact maxima)
-		float max2, max3;
-		search_prescan(d, &max2, &max3);
+	// Codebook search
+	int m0, m1, m2, m3, shift;
+	float bestC, bestE;
+	codebook_search(d, max2, max3, &m0, &m1, &m2, &m3, &shift,
+	                &bestC, &bestE);
 
-		// Codebook search
-		int m0, m1, m2, m3, shift;
-		float bestC, bestE;
-		codebook_search(d, max2, max3, &m0, &m1, &m2, &m3, &shift,
-		                &bestC, &bestE);
+	// Global sign: invert all pulses when the best correlation is negative
+	int sign = (bestC < 0.0f) ? 1 : 0;
 
-		// Global sign: invert all pulses when the best correlation is negative
-		int sign = (bestC < 0.0f) ? 1 : 0;
+	// Shaped code vector and filtered code vector
+	build_code(F, hprime, m0, m1, m2, m3, sign, cs->c[sub], cs->y2[sub]);
 
-		// Shaped code vector and filtered code vector
-		build_code(F, hprime, m0, m1, m2, m3, sign, cs->c[sub], cs->y2[sub]);
+	// Provisional codebook gain (eq. 30); final quantization is cl. 4.2.2.6
+	cs->gc[sub] = code_gain(x2, cs->y2[sub]);
 
-		// Provisional codebook gain (eq. 30)
-		cs->gc[sub] = code_gain(x2, cs->y2[sub]);
-
-		// Store the codebook parameters
-		cs->code_idx[sub] = pack_index(m0, m1, m2, m3);
-		cs->sign[sub] = (uint8_t)sign;
-		cs->shift[sub] = (uint8_t)shift;
+	// Store the codebook parameters
+	cs->code_idx[sub] = pack_index(m0, m1, m2, m3);
+	cs->sign[sub] = (uint8_t)sign;
+	cs->shift[sub] = (uint8_t)shift;
 
 #ifdef COD_DEBUG
-		float ce = 0.0f;
-		for(int n = 0; n < SUBFRAME_SIZ; n++)
-			ce += cs->c[sub][n] * cs->c[sub][n];
-		printf("frame=%llu sf=%d idx=%u sign=%d shift=%d gc=%.3f c2e=%.3f |c|^2=%.3f\n",
-		       (unsigned long long)frame, sub, cs->code_idx[sub], sign, shift,
-		       cs->gc[sub], bestE > 1e-9f ? bestC/bestE : 0.0f, ce);
+	float ce = 0.0f;
+	for(int n = 0; n < SUBFRAME_SIZ; n++)
+		ce += cs->c[sub][n] * cs->c[sub][n];
+	printf("frame=%llu sf=%d idx=%u sign=%d shift=%d gc=%.3f c2e=%.3f |c|^2=%.3f\n",
+	       (unsigned long long)frame, sub, cs->code_idx[sub], sign, shift,
+	       cs->gc[sub], bestE > 1e-9f ? bestC/bestE : 0.0f, ce);
 #endif
-	}
 }

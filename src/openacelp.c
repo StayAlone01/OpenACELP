@@ -10,6 +10,9 @@ Pitch_State		pitch_st;
 // Algebraic codebook state (cl. 4.2.2.5)
 Codebook_State	code_st;
 
+// Gain quantization state (cl. 4.2.2.6)
+Gain_State		gain_st;
+
 // Calculate filtered signal
 // Based on input speech and A(z) filter coeff. array
 // Arg1: output signal, arg2: input speech
@@ -301,11 +304,30 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	uint8_t T_0 = Find_Pitch(spch_out, prev_w_spch_frame);
 	printf("%d\n", T_0);
 
-	// Closed-loop long-term prediction analysis (cl. 4.2.2.4)
-	Pitch_Analysis(&pitch_st, spch_tmp, Aq, T_0);
+	// Closed-loop long-term prediction (cl. 4.2.2.4), algebraic codebook search
+	// (cl. 4.2.2.5) and gain quantization (cl. 4.2.2.6), INTERLEAVED per
+	// sub-frame so the quantized excitation u = gp*v + gc*c' feeds the
+	// adaptive-codebook memory of the next sub-frame (plan 4.2.2.6, D5)
+	float res[SUBFRAME_SIZ];
+	for(int sub = 0; sub < NUM_PITCH_SUB; sub++)
+	{
+		const float *A = Aq[sub];
+		const int16_t *sp = &spch_tmp[sub * SUBFRAME_SIZ];
 
-	// Algebraic (innovative) codebook search (cl. 4.2.2.5)
-	Codebook_Analysis(&code_st, &pitch_st, Aq);
+		// Long-term (adaptive codebook) analysis, cl. 4.2.2.4
+		Pitch_Analysis_Sub(&pitch_st, sp, A, T_0, sub, res);
+
+		// Algebraic (innovative) codebook search, cl. 4.2.2.5
+		Codebook_Analysis_Sub(&code_st, &pitch_st, A, sub);
+
+		// Gain quantization, cl. 4.2.2.6
+		Gain_Analysis_Sub(&gain_st, A, pitch_st.v[sub], code_st.c[sub],
+		                  pitch_st.gp[sub], code_st.gc[sub], sub);
+
+		// True quantized excitation: u = gp*v + gc*c'
+		Excitation_Update(&pitch_st, A, res, pitch_st.v[sub], code_st.c[sub],
+		                  gain_st.gp[sub], gain_st.gc[sub]);
+	}
 	
 	// Update speech
 	memcpy(prev_w_spch_frame, spch_out, FRAME_SIZ*sizeof(int16_t));
@@ -326,6 +348,7 @@ void ACELP_Init(float *search_grid, float *analysis_window, int16_t *f_mem1, int
 	Pitch_Interp_Init();
 	Pitch_Init(&pitch_st);
 	Codebook_Init(&code_st);
+	Gain_Init(&gain_st);
 	memset(f_mem1, 0, FRAME_SIZ*sizeof(int16_t));
 	memset(f_mem2, 0, FRAME_SIZ*sizeof(int16_t));
 }

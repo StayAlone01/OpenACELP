@@ -51,7 +51,7 @@ Legend:
   - [x] Sub-frame search maximizing eq. (24); ±1/3, ±2/3 refinement via 8-tap interpolation of the normalized correlation
   - [x] Pitch gain (eq. 25), clamped to [0, 1.2]
   - [x] Pitch delay coding: 8 bits (sf1) + 5 bits (sf2–4), own index mapping (plan D3), stored in `Pitch_State.pitch_idx`
-- [ ] Replace the LP-residual placeholder excitation with the true quantized excitation `u = gp·v + gc·c` once 4.2.2.6 (gain quantization) is implemented (plan D1)
+  - [x] Replace the LP-residual placeholder excitation with the true quantized excitation `u = gp·v + gc·c'` (done with 4.2.2.6, plan D5)
 
 ## 7. Algebraic (innovative) codebook ([1] cl. 4.2.2.5)
 
@@ -59,13 +59,25 @@ Legend:
 - [x] Dynamic shaping `F(z) = A(z/0.75)/A(z/0.85)` combined with the weighted synthesis filter; fixed-gain pitch contribution (0.8, T<60) applied to the shaping impulse response (NOTE 4)
 - [x] Algebraic codebook search per sub-frame: backward filtering, `Φ = HᵗH`, maximize `C²/ε` (eq. 27–29), focused search (0.586 thresholds, time counter 350)
 - [x] Codebook index coding (14-bit index, table 4 layout; global sign + shift bits)
-- [x] Provisional codebook gain `gc = C/ε` (eq. 30) stored in `Codebook_State` — quantization and final clamping belong to 4.2.2.6
+- [x] Provisional codebook gain `gc = C/ε` (eq. 30) stored in `Codebook_State` — now the input to the 4.2.2.6 gain VQ
 
 ## 8. Gain quantization ([1] cl. 4.2.2.6)
 
-- [ ] Gain prediction (prediction from past gains / excitation energy)
-- [ ] Vector quantization of `gp` (pitch gain) and `gc` (codebook gain)
-- [ ] Gain codebook(s) training (same pipeline as LSP codebooks: py-lbg on TED-LIUM)
+- [x] Gain prediction: per sub-frame, cross-coupled energy prediction
+      `pred = 0.5·last_pit + 0.25·last_cod − 3.0` (clamped ≥ 0) from the last
+      QUANTIZED energies, in the natural float log2 domain (no scaling offsets, D2)
+- [x] Vector quantization of `gp` (pitch gain) and `gc` (codebook gain): 2-D VQ,
+      64-entry codebook, 6 bits/sub-frame, minimum squared error in log2 domain
+      (`src/gain.c`, `Gain_State`)
+- [x] Quantized gains: `gp_q = min(2^(0.5·(last_pit−e_p)), 1.2)`, `gc_q = 2^(0.5·(last_cod−e_c))`;
+      no energy limiting (D3 — not in the standard)
+- [x] Interleaved per-sub-frame encode loop: pitch → codebook → gains → excitation
+      update `u = gp·v + gc·c'` feeds the adaptive-codebook memory (D5); the
+      weighted-synthesis filter memory is driven by the residual error `res − u`
+- [x] Gain codebook training pipeline (`scripts/gain_codebook_generator.py`,
+      `-DGAIN_TRAINING` feature collection, LBG to 64 entries)
+- [ ] **Retrain the gain codebook on a real corpus** — `src/gain_codebook.c` is a
+      placeholder trained on synthetic features (same caveat as the LSP codebooks)
 
 ## 9. Bit allocation & multiplexing ([1] cl. 4.2.2.7, table 1/3 — 137 bits / 30 ms)
 
@@ -117,7 +129,7 @@ Legend:
 | Open-loop pitch search | done *(has a TODO bug)* |
 | Closed-loop adaptive codebook search | done (`src/pitch.c`) |
 | Algebraic codebook + shaping matrix | done (`src/codebook.c`) |
-| **Gain prediction & VQ** | **missing** |
+| **Gain prediction & VQ** | **done** (`src/gain.c`, 2-D VQ, 6 bits × 4; codebook needs retraining) |
 | **Bit allocation / multiplexer (137 bits)** | **missing** |
 | **Decoder (all sub-blocks + error concealment)** | **missing** |
 | **Channel coding (CRC, RCPC, interleaving)** | **missing** |
