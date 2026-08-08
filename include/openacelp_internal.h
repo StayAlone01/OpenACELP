@@ -64,6 +64,29 @@ void LSP_Poly(float *lsp, float *f);
 void LSP_LP(float *lsp, float *a);
 void Init_LSP(float *in1, float *in2);
 
+//-----------------------------Pitch (cl. 4.2.2.4)-----------------------------
+#define MAX_PITCH       143							// Max pitch delay (samples)
+#define MIN_PITCH       20							// Min pitch delay (samples)
+#define EXC_MEM         (MAX_PITCH + 32 + SUBFRAME_SIZ)	// Excitation buffer: max delay + 32-tap filter reach + sub-frame
+#define NUM_PITCH_SUB   4							// Pitch analysis runs once per sub-frame
+
+typedef struct
+{
+	float exc_buf[EXC_MEM];					// Past excitation, newest samples at the end
+											// (placeholder: LP residual until 4.2.2.5/6 land)
+	float w_mem[10];						// W(z) denominator memory (weighted speech history)
+	float f_mem[10];						// Weighted synthesis filter 1/A(z/0.85) memory
+	float s_mem[10];						// Past pre-processed speech (for the LP residual)
+	int16_t T1;								// Integer part of sub-frame 1 pitch lag
+	uint16_t pitch_idx[NUM_PITCH_SUB];		// Encoded pitch indices (our mapping, 8+5+5+5 bits)
+	float gp[NUM_PITCH_SUB];				// Pitch gains per sub-frame
+	float v[NUM_PITCH_SUB][SUBFRAME_SIZ];	// Adaptive codebook vectors per sub-frame
+} Pitch_State;
+
+void Pitch_Interp_Init(void);
+void Pitch_Init(Pitch_State *ps);
+void Pitch_Analysis(Pitch_State *ps, const int16_t *sprime, float Aq[4][11], int16_t T0_ol);
+
 // Openacelp (top-level encode + helpers)
 void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t *prev_s, int16_t *prev_w_s);
 void Speech_Weighting(int16_t *spch_out, int16_t *spch_in, float a[][11]);

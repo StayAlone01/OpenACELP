@@ -4,6 +4,9 @@
 int16_t		prev_spch_frame[FRAME_SIZ];			// Previous speech frame
 int16_t		prev_w_spch_frame[FRAME_SIZ];		// Previous speech frame (weighted)
 
+// Pitch analysis state (cl. 4.2.2.4)
+Pitch_State		pitch_st;
+
 // Calculate filtered signal
 // Based on input speech and A(z) filter coeff. array
 // Arg1: output signal, arg2: input speech
@@ -216,6 +219,7 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	
 	int32_t		r[11];									// Autocorrelation values
 	float		lp[4][11];								// LP coeffs (10, but starting from lp[1], lp[0]=1.0)
+	float		Aq[4][11];								// Quantized LP coeffs for the closed-loop path
 	
 	// Quantized and unquantized LSP vectors from the previous frame and this one
 	static float q_lsp_prev[10];
@@ -271,6 +275,12 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	// Unquantized LSP to A(z) conversion for this frame
 	for(uint8_t i=0; i<4; i++)
 		LSP_LP(&lsp[i][0], &lp[i][0]);
+
+	// Quantized LSP to A(z) conversion for this frame (closed-loop path, cl. 4.1:
+	// the weighting and synthesis filters of the closed-loop search use the
+	// quantized LP parameters)
+	for(uint8_t i=0; i<4; i++)
+		LSP_LP(&q_lsp[i][0], &Aq[i][0]);
 	
 	// "pole-zero type weighting procedure"
 	// Calculating weighted speech
@@ -287,6 +297,9 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	// Find open loop pitch
 	uint8_t T_0 = Find_Pitch(spch_out, prev_w_spch_frame);
 	printf("%d\n", T_0);
+
+	// Closed-loop long-term prediction analysis (cl. 4.2.2.4)
+	Pitch_Analysis(&pitch_st, spch_tmp, Aq, T_0);
 	
 	// Update speech
 	memcpy(prev_w_spch_frame, spch_out, FRAME_SIZ*sizeof(int16_t));
@@ -304,6 +317,8 @@ void ACELP_Init(float *search_grid, float *analysis_window, int16_t *f_mem1, int
 {
 	Grid_Generate(search_grid);
 	Analysis_Window_Init(analysis_window);
+	Pitch_Interp_Init();
+	Pitch_Init(&pitch_st);
 	memset(f_mem1, 0, FRAME_SIZ*sizeof(int16_t));
 	memset(f_mem2, 0, FRAME_SIZ*sizeof(int16_t));
 }

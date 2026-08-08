@@ -38,17 +38,20 @@ Legend:
 
 ## 5. Perceptual weighting ([1] cl. 4.1, 4.2.2; `W(z) = A(z/γ1)/A(z/γ2)`, γ1=0.85, γ2=0.85)
 
-- [x] Weighting filter for all 4 sub-frames (`Speech_Weighting`, `Filter`) — "(WIP) looks like it works"
-- [ ] Confirm against reference implementation; current code uses unquantized LSPs for weighting, check requirement that weighting uses **quantized** LP params
+- [x] Open-loop weighting filter for all 4 sub-frames (`Speech_Weighting`, `Filter`): `W(z) = A(z/0.95)/A(z/0.60)`, un-quantized LP (per cl. 4.2.2.4)
+- [x] Closed-loop perceptual weighting uses **quantized** LP (`W(z)=A(z)/A(z/0.85)`, `1/A(z/0.85)`) in `src/pitch.c` (per cl. 4.1)
 
 ## 6. Long-term prediction analysis ([1] cl. 4.2.2.4, [2] cl. 2.3)
 
-- [x] Open-loop pitch search, once per frame (`Find_Pitch`, 3 ranges 20–39 / 40–79 / 80–142) — `(WIP)`
-- [x] **Fix TODO in `Find_Pitch`** — normalization loop is wrong (iterates over full frame with `ind[i]` thresholds instead of the 120-sample subset used in `C[k]` accumulation; pitch range boundary also questionable)
-- [ ] Closed-loop (adaptive codebook) search, once per sub-frame — **NOT implemented**
-  - [ ] Adaptive codebook construction from past excitation (interpolation for fractional/whole delays; repetition when delay < sub-frame length)
-  - [ ] Sub-frame adaptive codebook search with perceptually weighted synthesis (`MSE search`)
-  - [ ] Pitch delay coding (whole/fractional parts, as per [1] bit allocation — 7 bits/sub-frame)
+- [x] Open-loop pitch search, once per frame (`Find_Pitch`, 3 ranges 20–39 / 40–79 / 80–142)
+- [x] Find_Pitch normalization uses the 120-sample stride-2 window matching the correlation numerator
+- [x] Closed-loop (adaptive codebook) search, once per sub-frame (`Pitch_Analysis` in `src/pitch.c`)
+  - [x] Search limited to a window around the open-loop pitch (sub-frame 1: ±2; sub-frames 2–4: `T1−5 … T1+4`), bounded by [20, 143] (cl. 4.2.2.4, NOTE 2)
+  - [x] Adaptive codebook construction from past excitation (32-tap Hamming-windowed sinc interpolation for fractional delays; extension by LP residual when delay < 60)
+  - [x] Sub-frame search maximizing eq. (24); ±1/3, ±2/3 refinement via 8-tap interpolation of the normalized correlation
+  - [x] Pitch gain (eq. 25), clamped to [0, 1.2]
+  - [x] Pitch delay coding: 8 bits (sf1) + 5 bits (sf2–4), own index mapping (plan D3), stored in `Pitch_State.pitch_idx`
+- [ ] Replace the LP-residual placeholder excitation with the true quantized excitation `u = gp·v + gc·c` once 4.2.2.5/4.2.2.6 are implemented (plan D1)
 
 ## 7. Algebraic (innovative) codebook ([1] cl. 4.2.2.5)
 
@@ -111,7 +114,7 @@ Legend:
 | LSP split-VQ + interpolation | done (codebooks need retraining) |
 | Perceptual weighting | done *(needs verification)* |
 | Open-loop pitch search | done *(has a TODO bug)* |
-| **Closed-loop adaptive codebook search** | **missing** |
+| Closed-loop adaptive codebook search | done (`src/pitch.c`) |
 | **Algebraic codebook + shaping matrix** | **missing** |
 | **Gain prediction & VQ** | **missing** |
 | **Bit allocation / multiplexer (137 bits)** | **missing** |

@@ -22,6 +22,7 @@ I'm using TED-LIUM release 1 ([OpenSLR link](http://www.openslr.org/7/), [downlo
 | Perceptual weighting | `W(z) = A(z/γ3) / A(z/γ4)` with γ3 = 0.95, γ4 = 0.60 |
 | Shaping matrix | `F(z) = A(z/γ1) / A(z/γ2)` with γ1 = 0.75, γ2 = 0.85 (planned, [1] annex F) |
 | Open-loop pitch | Once per frame, 3 search ranges: 20–39, 40–79, 80–142 |
+| Closed-loop pitch | Per sub-frame, limited window around the open-loop pitch; integer search + ±1/3, ±2/3 fractional refinement (cl. 4.2.2.4) |
 | Target platform | STM32 Cortex-M7 (hardware FPU) |
 
 ## Status
@@ -38,8 +39,19 @@ Implemented so far (encoder):
 - LSP split-vector quantization + per-sub-frame interpolation
 - Perceptual weighting filter
 - Open-loop pitch search
+- Closed-loop (adaptive) pitch search — per sub-frame, fractional resolution (cl. 4.2.2.4)
 
-Not yet implemented: closed-loop (adaptive) codebook search, algebraic codebook with shaping matrix, gain prediction/VQ, bit packing (137-bit frame), decoder, channel coding.
+Not yet implemented: algebraic codebook with shaping matrix, gain prediction/VQ, bit packing (137-bit frame), decoder, channel coding.
+
+## Implementation notes (cl. 4.2.2.4)
+
+- The fractional pitch refinement follows the standard's method: the normalized
+  correlation (eq. 24) is interpolated with the 8-tap filter and its maximum is
+  searched; the encoder does not brute-force every 1/3-step candidate.
+- The closed-loop search uses the **quantized** LP parameters for the weighting and
+  synthesis filters (`W(z) = A(z)/A(z/0.85)`, `1/A(z/0.85)`), as cl. 4.1 requires.
+  The open-loop stage still uses the un-quantized `A(z/0.95)/A(z/0.60)` filter, as
+  cl. 4.2.2.4 specifies.
 
 ## Building
 
