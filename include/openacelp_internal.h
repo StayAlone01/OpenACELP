@@ -81,11 +81,27 @@ typedef struct
 	uint16_t pitch_idx[NUM_PITCH_SUB];		// Encoded pitch indices (our mapping, 8+5+5+5 bits)
 	float gp[NUM_PITCH_SUB];				// Pitch gains per sub-frame
 	float v[NUM_PITCH_SUB][SUBFRAME_SIZ];	// Adaptive codebook vectors per sub-frame
+	int16_t T0[NUM_PITCH_SUB];				// Integer pitch delay per sub-frame
+	float x2[NUM_PITCH_SUB][SUBFRAME_SIZ];	// Innovation target x2 = x - gp*y (eq. 26)
 } Pitch_State;
 
 void Pitch_Interp_Init(void);
 void Pitch_Init(Pitch_State *ps);
 void Pitch_Analysis(Pitch_State *ps, const int16_t *sprime, float Aq[4][11], int16_t T0_ol);
+
+//-----------------------------Algebraic codebook (cl. 4.2.2.5)-----------------------------
+typedef struct
+{
+	uint16_t code_idx[NUM_PITCH_SUB];		// 14-bit algebraic index (table 4 layout)
+	uint8_t  sign[NUM_PITCH_SUB];			// Global sign bit
+	uint8_t  shift[NUM_PITCH_SUB];			// Shift bit
+	float gc[NUM_PITCH_SUB];				// Provisional codebook gain (eq. 30)
+	float c[NUM_PITCH_SUB][SUBFRAME_SIZ];	// Shaped code vector c'(n)
+	float y2[NUM_PITCH_SUB][SUBFRAME_SIZ];	// Filtered shaped code (for the gain)
+} Codebook_State;
+
+void Codebook_Init(Codebook_State *cs);
+void Codebook_Analysis(Codebook_State *cs, const Pitch_State *ps, float Aq[4][11]);
 
 // Openacelp (top-level encode + helpers)
 void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t *prev_s, int16_t *prev_w_s);

@@ -12,8 +12,6 @@
 // design only: Hamming-windowed sinc, 8 taps for the correlation interpolation
 // (sinc truncated at +/-12, i.e. +/-4 samples at 1/3 resolution) and 32 taps for
 // the past excitation interpolation (sinc truncated at +/-48, i.e. +/-16 samples).
-// The coefficient values are derived from that description (plan decision D2) and
-// are NOT copied from any reference implementation.
 //
 // 4 phases: -2/3, -1/3, +1/3, +2/3
 static float interp_8[4][8];
@@ -331,7 +329,7 @@ static float pitch_gain(const float *x, const float *y)
 	return gp;
 }
 
-// Pitch delay coding (plan decision D3 - our own mapping, not the reference's).
+// Pitch delay coding (plan decision D3).
 // Sub-frame 1 (8 bits): idx 0..196   -> 19 1/3 .. 84 2/3 in 1/3 steps,
 //                       idx 197..255 -> integers 85..143.
 // Sub-frames 2-4 (5 bits): idx 0..31 -> T1 + (idx-17)/3 (offset -17..+14 thirds).
@@ -424,6 +422,12 @@ void Pitch_Analysis(Pitch_State *ps, const int16_t *sprime, float Aq[4][11], int
 		memcpy(ps->v[sub], v, SUBFRAME_SIZ * sizeof(float));
 		ps->gp[sub] = gp;
 		ps->pitch_idx[sub] = encode_pitch(T0, frac, sub, ps->T1);
+		ps->T0[sub] = T0;
+
+		// Innovation target for the codebook search (eq. 26):
+		// x2(n) = x(n) - gp*y(n)
+		for(int n = 0; n < SUBFRAME_SIZ; n++)
+			ps->x2[sub][n] = x[n] - gp*y[n];
 
 		if(sub == 0)
 			ps->T1 = T0;

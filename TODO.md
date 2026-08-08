@@ -51,14 +51,15 @@ Legend:
   - [x] Sub-frame search maximizing eq. (24); ±1/3, ±2/3 refinement via 8-tap interpolation of the normalized correlation
   - [x] Pitch gain (eq. 25), clamped to [0, 1.2]
   - [x] Pitch delay coding: 8 bits (sf1) + 5 bits (sf2–4), own index mapping (plan D3), stored in `Pitch_State.pitch_idx`
-- [ ] Replace the LP-residual placeholder excitation with the true quantized excitation `u = gp·v + gc·c` once 4.2.2.5/4.2.2.6 are implemented (plan D1)
+- [ ] Replace the LP-residual placeholder excitation with the true quantized excitation `u = gp·v + gc·c` once 4.2.2.6 (gain quantization) is implemented (plan D1)
 
 ## 7. Algebraic (innovative) codebook ([1] cl. 4.2.2.5)
 
-- [ ] Define algebraic codebook structure (track positions, pulse positions/amplitudes) per [1]
-- [ ] Implement dynamic shaping matrix `F(z) = A(z/γ1)/A(z/γ2)` with **γ1 = 0.75, γ2 = 0.85** (Toeplitz lower-triangular shaping, [1] annex F) — note: this differs from the weighting filter γ
-- [ ] Algebraic codebook search (per sub-frame, analysis-by-synthesis, MSE search)
-- [ ] Codebook index coding (per [1] bit allocation)
+- [x] Define algebraic codebook structure (4 pulses, positions/amplitudes per table 2) (`src/codebook.c`)
+- [x] Dynamic shaping `F(z) = A(z/0.75)/A(z/0.85)` combined with the weighted synthesis filter; fixed-gain pitch contribution (0.8, T<60) applied to the shaping impulse response (NOTE 4)
+- [x] Algebraic codebook search per sub-frame: backward filtering, `Φ = HᵗH`, maximize `C²/ε` (eq. 27–29), focused search (0.586 thresholds, time counter 350)
+- [x] Codebook index coding (14-bit index, table 4 layout; global sign + shift bits)
+- [x] Provisional codebook gain `gc = C/ε` (eq. 30) stored in `Codebook_State` — quantization and final clamping belong to 4.2.2.6
 
 ## 8. Gain quantization ([1] cl. 4.2.2.6)
 
@@ -115,7 +116,7 @@ Legend:
 | Perceptual weighting | done *(needs verification)* |
 | Open-loop pitch search | done *(has a TODO bug)* |
 | Closed-loop adaptive codebook search | done (`src/pitch.c`) |
-| **Algebraic codebook + shaping matrix** | **missing** |
+| Algebraic codebook + shaping matrix | done (`src/codebook.c`) |
 | **Gain prediction & VQ** | **missing** |
 | **Bit allocation / multiplexer (137 bits)** | **missing** |
 | **Decoder (all sub-blocks + error concealment)** | **missing** |

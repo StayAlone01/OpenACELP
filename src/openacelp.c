@@ -7,6 +7,9 @@ int16_t		prev_w_spch_frame[FRAME_SIZ];		// Previous speech frame (weighted)
 // Pitch analysis state (cl. 4.2.2.4)
 Pitch_State		pitch_st;
 
+// Algebraic codebook state (cl. 4.2.2.5)
+Codebook_State	code_st;
+
 // Calculate filtered signal
 // Based on input speech and A(z) filter coeff. array
 // Arg1: output signal, arg2: input speech
@@ -300,6 +303,9 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 
 	// Closed-loop long-term prediction analysis (cl. 4.2.2.4)
 	Pitch_Analysis(&pitch_st, spch_tmp, Aq, T_0);
+
+	// Algebraic (innovative) codebook search (cl. 4.2.2.5)
+	Codebook_Analysis(&code_st, &pitch_st, Aq);
 	
 	// Update speech
 	memcpy(prev_w_spch_frame, spch_out, FRAME_SIZ*sizeof(int16_t));
@@ -319,6 +325,7 @@ void ACELP_Init(float *search_grid, float *analysis_window, int16_t *f_mem1, int
 	Analysis_Window_Init(analysis_window);
 	Pitch_Interp_Init();
 	Pitch_Init(&pitch_st);
+	Codebook_Init(&code_st);
 	memset(f_mem1, 0, FRAME_SIZ*sizeof(int16_t));
 	memset(f_mem2, 0, FRAME_SIZ*sizeof(int16_t));
 }

@@ -23,6 +23,7 @@ I'm using TED-LIUM release 1 ([OpenSLR link](http://www.openslr.org/7/), [downlo
 | Shaping matrix | `F(z) = A(z/γ1) / A(z/γ2)` with γ1 = 0.75, γ2 = 0.85 (planned, [1] annex F) |
 | Open-loop pitch | Once per frame, 3 search ranges: 20–39, 40–79, 80–142 |
 | Closed-loop pitch | Per sub-frame, limited window around the open-loop pitch; integer search + ±1/3, ±2/3 fractional refinement (cl. 4.2.2.4) |
+| Algebraic codebook | 16-bit, 4 pulses (+√2, −1, +1, −1), dynamic shaping `F(z)=A(z/0.75)/A(z/0.85)`, focused search (cl. 4.2.2.5) |
 | Target platform | STM32 Cortex-M7 (hardware FPU) |
 
 ## Status
@@ -40,8 +41,9 @@ Implemented so far (encoder):
 - Perceptual weighting filter
 - Open-loop pitch search
 - Closed-loop (adaptive) pitch search — per sub-frame, fractional resolution (cl. 4.2.2.4)
+- Algebraic (innovative) codebook search — 4 pulses, dynamic shaping, focused search (cl. 4.2.2.5)
 
-Not yet implemented: algebraic codebook with shaping matrix, gain prediction/VQ, bit packing (137-bit frame), decoder, channel coding.
+Not yet implemented: gain prediction/VQ, bit packing (137-bit frame), decoder, channel coding.
 
 ## Implementation notes (cl. 4.2.2.4)
 
@@ -52,6 +54,19 @@ Not yet implemented: algebraic codebook with shaping matrix, gain prediction/VQ,
   synthesis filters (`W(z) = A(z)/A(z/0.85)`, `1/A(z/0.85)`), as cl. 4.1 requires.
   The open-loop stage still uses the un-quantized `A(z/0.95)/A(z/0.60)` filter, as
   cl. 4.2.2.4 specifies.
+
+## Implementation notes (cl. 4.2.2.5)
+
+- The codebook is searched by maximizing `C²/ε` (eq. 27–29) over the 4-pulse
+  algebraic structure, with the dynamic shaping filter `F(z) = A(z/0.75)/A(z/0.85)`
+  combined into the weighted-synthesis impulse response. The fixed-gain pitch
+  contribution (0.8, for T < 60) is applied to the shaping impulse response, as
+  cl. 4.2.2.5 NOTE 4 requires.
+- The focused-search thresholds use the exact maximum 2- and 3-pulse correlations
+  found prior to the search; the worst-case time counter (350) bounds the search
+  (cl. 4.2.2.5).
+- The provisional codebook gain `gc = C/ε` (eq. 30) is computed and stored; its
+  quantization and final clamping belong to cl. 4.2.2.6.
 
 ## Building
 
