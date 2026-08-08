@@ -262,6 +262,26 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev)
 	}
 }
 
+// Interpolate LSP vectors for the 4 sub-frames
+// (EN 300 395-2 cl. 4.2.2.3, eq. 22 - interpolation in the cosine domain)
+// Arg1: previous frame LSP vector (10), arg2: present frame LSP vector (10),
+// Arg3: output interpolated LSPs, one per sub-frame (4x10)
+// Note: sub-frame index 3 (the 4th) uses the present frame LSPs as-is; the
+// first three sub-frames use a linear blend of present and previous vectors.
+void Int_LSP(float *lsp_prev, float *lsp_this, float lsp_int[4][10])
+{
+	// Sub-frame 4 (index 3)
+	memcpy(lsp_int[3], lsp_this, 10*sizeof(float));
+	
+	// Sub-frames 3, 2 and 1 (indices 2, 1, 0)
+	for(uint8_t i=0; i<10; i++)
+	{
+		lsp_int[2][i] = 0.75*lsp_this[i] + 0.25*lsp_prev[i];
+		lsp_int[1][i] = 0.50*lsp_this[i] + 0.50*lsp_prev[i];
+		lsp_int[0][i] = 0.25*lsp_this[i] + 0.75*lsp_prev[i];
+	}
+}
+
 // Convert LSP coeffs to F1(z) or F2(z)
 // Arg1: LSP array of length 10, arg2: F_1(z) or F_2(z) coefficients output
 void LSP_Poly(float *lsp, float *f)

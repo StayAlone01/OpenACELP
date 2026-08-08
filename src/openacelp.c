@@ -259,23 +259,11 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	LSP_SVQ(lsp_this, q_lsp_this, lsp_cb_indices, q_lsp_prev);
 	
 	// Interpolate quantized LSP vector for subframes 4,3,2,1 (indices are 3,2,1,0)
-	memcpy(q_lsp[3], q_lsp_this, 10*sizeof(float));
-	for(uint8_t i=0; i<10; i++)
-	{
-		q_lsp[2][i] = 0.75*q_lsp[3][i] + 0.25*q_lsp_prev[i];
-		q_lsp[1][i] = 0.50*q_lsp[3][i] + 0.50*q_lsp_prev[i];
-		q_lsp[0][i] = 0.25*q_lsp[3][i] + 0.75*q_lsp_prev[i];
-	}
+	Int_LSP(q_lsp_prev, q_lsp_this, q_lsp);
 	
 	// Interpolate unquantized LSP vector for subframes 4,3,2,1 (indices are 3,2,1,0)
 	// Computed LSPs are used for subframe 4 (index 3)
-	memcpy(&lsp[3], lsp_this, 10*sizeof(float));
-	for(uint8_t i=0; i<10; i++)
-	{
-		lsp[2][i] = 0.75*lsp[3][i] + 0.25*lsp_prev[i];
-		lsp[1][i] = 0.50*lsp[3][i] + 0.50*lsp_prev[i];
-		lsp[0][i] = 0.25*lsp[3][i] + 0.75*lsp_prev[i];
-	}
+	Int_LSP(lsp_prev, lsp_this, lsp);
 	
 	// Now we have both quantized and unquantized LSP vectors for further computations
 	// We can change them back to {a_i} for the A(z)
