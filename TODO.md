@@ -76,8 +76,9 @@ Legend:
       weighted-synthesis filter memory is driven by the residual error `res − u`
 - [x] Gain codebook training pipeline (`scripts/gain_codebook_generator.py`,
       `-DGAIN_TRAINING` feature collection, LBG to 64 entries)
-- [ ] **Retrain the gain codebook on a real corpus** — `src/gain_codebook.c` is a
-      placeholder trained on synthetic features (same caveat as the LSP codebooks)
+- [ ] **Retrain the gain codebook on a proper corpus** — `src/gain_codebook.c` is
+      trained on a ~65 s real-speech demo (codec2 test files); retrain on
+      LibriSpeech / Common Voice / VCTK (same caveat as the LSP codebooks)
 
 ## 9. Bit allocation & multiplexing ([1] cl. 4.2.2.7, table 1/3 — 137 bits / 30 ms)
 

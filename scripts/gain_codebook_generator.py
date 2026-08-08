@@ -36,29 +36,33 @@ CB_SIZE = 64  # codebook size (6 bits)
 MAX_ITER = 200  # Lloyd iterations per split stage
 
 
-def read_features(path, clip_lo=None, clip_hi=None):
+def read_features(paths, clip_lo=None, clip_hi=None):
+    """Read (err_pit, err_cod) lines from one or more feature files."""
+    if isinstance(paths, str):
+        paths = [paths]
     feats = []
-    with open(path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split()
-            if len(parts) < 2:
-                continue
-            try:
-                x, y = float(parts[0]), float(parts[1])
-            except ValueError:
-                continue
-            if not (math.isfinite(x) and math.isfinite(y)):
-                continue
-            if clip_lo is not None:
-                x = max(clip_lo, x)
-                y = max(clip_lo, y)
-            if clip_hi is not None:
-                x = min(clip_hi, x)
-                y = min(clip_hi, y)
-            feats.append((x, y))
+    for path in paths:
+        with open(path, "r") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+                try:
+                    x, y = float(parts[0]), float(parts[1])
+                except ValueError:
+                    continue
+                if not (math.isfinite(x) and math.isfinite(y)):
+                    continue
+                if clip_lo is not None:
+                    x = max(clip_lo, x)
+                    y = max(clip_lo, y)
+                if clip_hi is not None:
+                    x = min(clip_hi, x)
+                    y = min(clip_hi, y)
+                feats.append((x, y))
     return feats
 
 
@@ -157,12 +161,13 @@ def main():
 
     if len(args) < 1:
         print(
-            "usage: %s [--clip-lo LO] [--clip-hi HI] features.txt" % sys.argv[0],
+            "usage: %s [--clip-lo LO] [--clip-hi HI] features.txt [more.txt ...]"
+            % sys.argv[0],
             file=sys.stderr,
         )
         sys.exit(1)
 
-    feats = read_features(args[0], clip_lo, clip_hi)
+    feats = read_features(args, clip_lo, clip_hi)
     if len(feats) < CB_SIZE:
         print(
             "error: need at least %d feature vectors, got %d" % (CB_SIZE, len(feats)),

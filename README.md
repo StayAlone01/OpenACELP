@@ -83,9 +83,10 @@ Not yet implemented: bit packing (137-bit frame), decoder, channel coding.
 - The quantized gains build the true excitation `u = gp·v + gc·c'`, which updates the
   adaptive-codebook memory **per sub-frame** (pitch → codebook → gains → excitation
   update are interleaved), replacing the LP-residual placeholder from plans 4.2.2.4/5.
-- The gain codebook in `src/gain_codebook.c` is a **placeholder trained on synthetic
-  speech**; retrain it on a real corpus with `scripts/gain_codebook_generator.py`
-  (collect features with `make CFLAGS="... -DGAIN_TRAINING"`).
+- The gain codebook in `src/gain_codebook.c` is trained on a small real-speech sample
+  (~65 s) as a pipeline demo. Retrain it on a proper corpus with
+  `scripts/audio_to_raw.py` + `make CFLAGS="... -DGAIN_TRAINING"` +
+  `scripts/gain_codebook_generator.py`.
 
 ## Building
 
@@ -98,6 +99,20 @@ The binary takes a RAW file (signed 16-bit, little-endian, 8 kHz) and runs the e
 ```sh
 ./openacelp speech.raw
 ```
+
+## Training the codebooks
+
+Quick path for the gain codebook:
+
+```sh
+python3 scripts/audio_to_raw.py <audio_dir> <raw_dir>          # any format -> 8 kHz RAW
+make clean && make CFLAGS="-Wall -Wextra -O2 -std=c99 -DGAIN_TRAINING"
+for f in <raw_dir>/*.raw; do ./openacelp "$f" 2>> features.txt; done
+python3 scripts/gain_codebook_generator.py features.txt > src/gain_codebook.c
+make clean && make
+```
+
+Validate with `scripts/validate_gains.py` (build with `-DGAIN_DEBUG` first).
 
 ## Project structure
 

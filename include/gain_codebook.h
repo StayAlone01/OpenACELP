@@ -12,10 +12,10 @@
 // The table itself lives in src/gain_codebook.c; regenerate it with
 // scripts/gain_codebook_generator.py.
 //
-// NOTE: the current table is a PLACEHOLDER, generated from synthetic
-// speech features. It must be retrained on a real speech corpus
-// (TED-LIUM release 1, py-lbg), same as the LSP codebooks.
-// See docs/plan-4.2.2.6.md (D1).
+// NOTE: the current table is trained on a SMALL sample of real speech
+// (~65 s of the codec2 test files) as a demonstration of the training
+// pipeline. It must be retrained on a proper corpus (e.g. LibriSpeech,
+// CC BY 4.0) - see plan-4.2.2.6.md (D1).
 //------------------------------------------------------------------
 
 #ifndef GAIN_CODEBOOK
