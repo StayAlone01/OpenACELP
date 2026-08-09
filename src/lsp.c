@@ -301,6 +301,48 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev)
 #endif
 }
 
+// Decode quantized LSPs from the split-VQ codebook indices (cl. 4.2.3.1.1),
+// inverse of LSP_SVQ: codebook lookup (3+3+4), minimum-distance enforcement
+// between adjacent sub-vector pairs and an ordering check with fallback to the
+// previous frame's vector.
+// Arg1: codebook indices (3), arg2: previous frame quantized LSPs (10),
+// Arg3: decoded quantized LSPs output (10)
+void LSP_Decode(const uint16_t ind[3], const float *lsp_prev, float *lsp)
+{
+	// Codebook lookup
+	memcpy(&lsp[0], &cb1[ind[0]*3], 3*sizeof(float));
+	memcpy(&lsp[3], &cb2[ind[1]*3], 3*sizeof(float));
+	memcpy(&lsp[6], &cb3[ind[2]*4], 4*sizeof(float));
+
+	// Minimum distance between lsp[2] and lsp[3]
+	float temp = 0.028f - (lsp[2] - lsp[3]);
+	if(temp > 0.0f)
+	{
+		temp *= 0.5f;
+		lsp[2] += temp;
+		lsp[3] -= temp;
+	}
+
+	// Minimum distance between lsp[5] and lsp[6]
+	temp = 0.038f - (lsp[5] - lsp[6]);
+	if(temp > 0.0f)
+	{
+		temp *= 0.5f;
+		lsp[5] += temp;
+		lsp[6] -= temp;
+	}
+
+	// Ordering check; if out of order keep the previous frame's vector
+	for(uint8_t i=0; i<9; i++)
+	{
+		if(lsp[i] <= lsp[i+1])
+		{
+			memcpy(lsp, lsp_prev, 10*sizeof(float));
+			break;
+		}
+	}
+}
+
 // Interpolate LSP vectors for the 4 sub-frames
 // (EN 300 395-2 cl. 4.2.2.3, eq. 22 - interpolation in the cosine domain)
 // Arg1: previous frame LSP vector (10), arg2: present frame LSP vector (10),

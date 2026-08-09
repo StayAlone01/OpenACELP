@@ -213,6 +213,34 @@ static void adaptive_vector(const Pitch_State *ps, int16_t T0, int8_t frac_third
 	}
 }
 
+// Decoder: one adaptive codebook sample at offset n of the current sub-frame
+// (cl. 4.2.3.1.2). Interpolates the excitation at the fractional delay
+// T0 + frac_thirds/3 with the 32-tap filter. For delays below the sub-frame
+// length the samples of the current sub-frame are taken from the already
+// computed part of 'v', so the excitation repeats itself (cl. 4.2.2.4).
+// 'exc_buf' holds the decoded excitation with the newest samples at the end;
+// 'v' must hold v[0..n-1] when called for sample n.
+float Pitch_Adaptive_Sample(const float *exc_buf, const float *v, int n,
+                            int16_t T0, int8_t frac_thirds)
+{
+	const int base = EXC_MEM - SUBFRAME_SIZ;
+
+	if(frac_thirds == 0)
+	{
+		int m = n - T0;			// Relative to the sub-frame start
+		return (m < 0) ? exc_buf[base + m] : v[m];
+	}
+
+	const float *filt = interp_32[frac_phase(frac_thirds)];
+	float acc = 0.0f;
+	for(int i = 0; i < 32; i++)
+	{
+		int m = n - T0 + 16 - i;	// Relative to the sub-frame start
+		acc += filt[i] * ((m < 0) ? exc_buf[base + m] : v[m]);
+	}
+	return acc;
+}
+
 // Zero-state response of the weighted synthesis filter to the adaptive vector at
 // integer delay k: y(n) = sum_m v(m) * h(n-m)
 static void filtered_adaptive(const Pitch_State *ps, int k, const float *h, float *y)

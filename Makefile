@@ -20,10 +20,14 @@ TARGET  := openacelp
 
 all: $(TARGET)
 
-# Bit-packing self-test (cl. 4.2.2.7)
-test: tests/test_bits.c src/bits.c
+# Bit-packing self-test (cl. 4.2.2.7) + codec round-trip test (cl. 4.2.3)
+TEST_SRCS := $(filter-out src/main.c,$(SRCS))
+
+test: tests/test_bits.c tests/test_codec.c $(SRCS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o tests/test_bits tests/test_bits.c src/bits.c $(LDFLAGS)
 	./tests/test_bits
+	$(CC) $(CFLAGS) $(INCLUDES) -o tests/test_codec tests/test_codec.c $(TEST_SRCS) $(LDFLAGS)
+	./tests/test_codec
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDFLAGS)

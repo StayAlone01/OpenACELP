@@ -94,18 +94,19 @@ Legend:
 - [ ] Channel coding (cl. 5): CRC + RCPC + interleaving, sensitivity classes
       per table 4 (bits B1–B137); implement after the decoder (section 10) is done
 
-## 10. Decoder ([1] cl. 4.2.3, [2] cl. 2.6)
+## 10. Decoder ([1] cl. 4.2.3)
 
-- [ ] De-multiplexing of the 137-bit frame
-- [ ] Decoding of LP filter parameters (`LSP_Az` inverse of `Az_Lsp`; interpolation per sub-frame)
-- [ ] Decoding of the adaptive codebook vector
-- [ ] Decoding of the innovation vector (algebraic codebook + shaping)
-- [ ] Decoding of adaptive & innovative codebook gains
-- [ ] Computation of reconstructed speech:
-  - [ ] Long-term synthesis filter `1/(1 − gp·z⁻ᵀ)`
-  - [ ] Short-term synthesis filter `1/A(z)`
-- [ ] Post-processing (×2 with saturation)
-- [ ] Error concealment (`BFI` handling, [1] cl. 4.2.3.2)
+- [x] De-multiplexing of the 137-bit frame (`Prm_Unpack` in `src/bits.c`)
+- [x] Decoding of LP filter parameters (`LSP_Decode` in `src/lsp.c`; interpolation per sub-frame)
+- [x] Decoding of the adaptive codebook vector (fractional, repetition for T < 60; `Pitch_Adaptive_Sample` in `src/pitch.c`)
+- [x] Decoding of the innovation vector (algebraic codebook + shaping; `Codebook_Decode_Sub` in `src/codebook.c`)
+- [x] Decoding of adaptive & innovative codebook gains (`Gain_Decode_Sub` in `src/gain.c`)
+- [x] Computation of reconstructed speech:
+  - [x] Excitation `u = gp·v + gc·c'` (adaptive codebook + algebraic code)
+  - [x] Short-term synthesis filter `1/A(z)` (`src/decode.c`)
+- [x] Post-processing (×2 with saturation, `src/decode.c`)
+- [x] Error concealment (`BFI` handling, [1] cl. 4.2.3.2)
+- [x] Decode CLI mode + round-trip test (`src/main.c`, `tests/test_codec.c`)
 
 ## 11. Channel coding / decoding ([1] cl. 5 & 6) — **Deferred**: optional for a
 clean-channel codec; implement after the decoder (section 10) and only if a real /

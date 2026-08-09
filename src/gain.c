@@ -180,3 +180,48 @@ void Gain_Analysis_Sub(Gain_State *gs, const float *Aq, const float *v,
 #endif
 #endif
 }
+
+// Decode the quantized pitch and code gains for ONE sub-frame (cl. 4.2.3.1.4),
+// mirror of Gain_Analysis_Sub. Computes the vector energies, the prediction
+// and the quantized energies from the 6-bit VQ index, then the gains. On a bad
+// frame (bfi) the prediction energies of the previous sub-frame are reduced by
+// 0.5 (1.5 dB) and no codebook is used (cl. 4.2.3.2).
+void Gain_Decode_Sub(Gain_State *gs, const float *Aq, const float *v,
+                     const float *c, uint8_t idx, uint8_t bfi, int sub,
+                     float *gp_q, float *gc_q)
+{
+	// Energies in the natural float log2 domain (same convention as the encoder)
+	float e_p = log2f(vector_energy(v) * lpc_impulse_energy(Aq) + LOG_GUARD);
+	float e_c = log2f(vector_energy(c) * lpc_impulse_energy(Aq) + LOG_GUARD);
+
+	if(bfi)
+	{
+		// Error concealment: decrease the energies of the previous sub-frame
+		// by 1.5 dB (cl. 4.2.3.2)
+		gs->last_ener_pit -= 0.5f;
+		gs->last_ener_cod -= 0.5f;
+		if(gs->last_ener_pit < 0.0f) gs->last_ener_pit = 0.0f;
+		if(gs->last_ener_cod < 0.0f) gs->last_ener_cod = 0.0f;
+	}
+	else
+	{
+		// Prediction from the last quantized energies (cross-coupled)
+		float pred_pit = gain_predict(gs->last_ener_pit, gs->last_ener_cod);
+		float pred_cod = gain_predict(gs->last_ener_cod, gs->last_ener_pit);
+
+		// Quantized energies from the 6-bit VQ index
+		gs->last_ener_pit = gain_cb[idx][0] + pred_pit;
+		gs->last_ener_cod = gain_cb[idx][1] + pred_cod;
+
+		// Limit the quantized energies (cl. 4.2.2.6)
+		if(gs->last_ener_pit > 27.0f) gs->last_ener_pit = 27.0f;
+		if(gs->last_ener_cod > 25.0f) gs->last_ener_cod = 25.0f;
+	}
+
+	*gp_q = gain_pit_q(gs->last_ener_pit, e_p);
+	*gc_q = gain_cod_q(gs->last_ener_cod, e_c);
+
+	gs->gain_idx[sub] = idx;
+	gs->gp[sub] = *gp_q;
+	gs->gc[sub] = *gc_q;
+}

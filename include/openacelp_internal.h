@@ -128,6 +128,28 @@ void Gain_Analysis_Sub(Gain_State *gs, const float *Aq, const float *v,
 void Prm_Pack(const uint16_t prm[23], uint8_t bits[FRAME_BITS]);
 void Prm_Unpack(const uint8_t bits[FRAME_BITS], uint16_t prm[23]);
 
+//-----------------------------Decoder (cl. 4.2.3)-----------------------------
+typedef struct
+{
+	float    exc_buf[EXC_MEM];	// Decoded excitation, newest samples at the end
+	float    lsp_old[10];		// Previous frame's decoded (quantized) LSP
+	Gain_State gain;		// Gain prediction state (last quantized energies)
+	float    mem_syn[10];		// 1/A(z) synthesis filter memory
+	int16_t  old_T0;		// Pitch of the 4th sub-frame of the last frame
+	uint16_t old_prm[23];		// Last good frame's parameters (error concealment)
+} Decoder_State;
+
+void LSP_Decode(const uint16_t ind[3], const float *lsp_prev, float *lsp);
+float Pitch_Adaptive_Sample(const float *exc_buf, const float *v, int n,
+                            int16_t T0, int8_t frac_thirds);
+void Codebook_Decode_Sub(const float *Aq, int16_t T0, uint16_t code_idx,
+                         uint8_t sign, uint8_t shift, float *c);
+void Gain_Decode_Sub(Gain_State *gs, const float *Aq, const float *v,
+                     const float *c, uint8_t idx, uint8_t bfi, int sub,
+                     float *gp_q, float *gc_q);
+void ACELP_Decoder_Init(void);
+void ACELP_DecodeFrame(const uint8_t *bits, uint8_t bfi, int16_t *synth);
+
 // Openacelp (top-level encode + helpers)
 void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t *prev_s, int16_t *prev_w_s);
 void Speech_Weighting(int16_t *spch_out, int16_t *spch_in, float a[][11]);

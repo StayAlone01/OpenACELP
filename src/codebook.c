@@ -346,3 +346,36 @@ void Codebook_Analysis_Sub(Codebook_State *cs, const Pitch_State *ps,
 	       cs->gc[sub], bestE > 1e-9f ? bestC/bestE : 0.0f, ce);
 #endif
 }
+
+// Decoder: decode the shaped innovative vector from the algebraic codebook
+// parameters (cl. 4.2.3.1.3), reproducing the encoder's shaped code c'(n).
+// Recomputes the shaping impulse response F(n) (including the fixed-gain pitch
+// contribution when T0 < 60) and builds
+//   c'(n) = a*F(n-p0) - F(n-p1) + F(n-p2) - F(n-p3)
+// from the 4 pulse positions extracted from the 14-bit index, with the shift
+// bit and the global sign applied. Positions >= 60 mean the pulse is not
+// present (cl. 4.2.2.5, NOTE 1).
+void Codebook_Decode_Sub(const float *Aq, int16_t T0, uint16_t code_idx,
+                         uint8_t sign, uint8_t shift, float *c)
+{
+	float F[SUBFRAME_SIZ];
+	shaping_impulse(Aq, T0, F);
+
+	// Pulse positions from the 14-bit index (table 4 layout)
+	int p0 = (int)((code_idx & 0x1Fu) << 1);
+	int p1 = (int)(((code_idx >> 5) & 0x7u) * 8 + 2);
+	int p2 = (int)(((code_idx >> 8) & 0x7u) * 8 + 4);
+	int p3 = (int)(((code_idx >> 11) & 0x7u) * 8 + 6);
+
+	int s = shift ? 1 : 0;
+
+	for(int n = 0; n < SUBFRAME_SIZ; n++)
+	{
+		float cn = 0.0f;
+		if(p0 < SUBFRAME_SIZ && n >= p0 + s) cn += GAIN_I0*F[n - p0 - s];
+		if(p1 < SUBFRAME_SIZ && n >= p1 + s) cn -= F[n - p1 - s];
+		if(p2 < SUBFRAME_SIZ && n >= p2 + s) cn += F[n - p2 - s];
+		if(p3 < SUBFRAME_SIZ && n >= p3 + s) cn -= F[n - p3 - s];
+		c[n] = sign ? -cn : cn;
+	}
+}

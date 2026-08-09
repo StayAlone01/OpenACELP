@@ -46,7 +46,14 @@ Implemented so far (encoder):
 - Gain prediction + vector quantization of `gp`/`gc` — 2-D VQ, 6 bits/sub-frame, interleaved per sub-frame (cl. 4.2.2.6)
 - Bit allocation & multiplexing — 137-bit frame packing, MSB-first, table 3 order (cl. 4.2.2.7)
 
-Not yet implemented: decoder, channel coding.
+Decoder (cl. 4.2.3):
+
+- De-multiplexing + parameter decoding (LSP, pitch, algebraic code, gains)
+- Excitation reconstruction + synthesis `1/A(z)` (cl. 4.2.3.1)
+- Post-processing (×2 with saturation, cl. 4.2.1)
+- Error concealment on `BFI` (cl. 4.2.3.2)
+
+Not yet implemented: channel coding (cl. 5) — deferred.
 
 ## Implementation notes (cl. 4.2.2.4)
 
