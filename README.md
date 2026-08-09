@@ -3,8 +3,6 @@ Free ACELP vocoder. It is based on **ETSI EN 300-395-2**<sup>[1]</sup> and **TIA
 
 The codebooks are trained on **LibriSpeech `train-clean-100`** (~100 h, CC BY 4.0) with the project's own numpy-vectorized Linde–Buzo–Gray (LBG) implementation (`scripts/lbg_common.py`). A codebook is specific to the corpus it was trained on — see `docs/codebook_training.md` for the training pipeline.
 
-**Actual phase:** **picked up by VR2YEP — development in progress (irregular)**. This is a fork of the original project by **SP5WWP**.
-
 ## Codec parameters
 
 | Parameter | Value |
