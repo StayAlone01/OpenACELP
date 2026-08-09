@@ -44,8 +44,9 @@ Implemented so far (encoder):
 - Closed-loop (adaptive) pitch search — per sub-frame, fractional resolution (cl. 4.2.2.4)
 - Algebraic (innovative) codebook search — 4 pulses, dynamic shaping, focused search (cl. 4.2.2.5)
 - Gain prediction + vector quantization of `gp`/`gc` — 2-D VQ, 6 bits/sub-frame, interleaved per sub-frame (cl. 4.2.2.6)
+- Bit allocation & multiplexing — 137-bit frame packing, MSB-first, table 3 order (cl. 4.2.2.7)
 
-Not yet implemented: bit packing (137-bit frame), decoder, channel coding.
+Not yet implemented: decoder, channel coding.
 
 ## Implementation notes (cl. 4.2.2.4)
 

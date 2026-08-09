@@ -16,9 +16,14 @@ OBJS    := $(SRCS:.c=.o)
 # Output binary
 TARGET  := openacelp
 
-.PHONY: all clean
+.PHONY: all clean test
 
 all: $(TARGET)
+
+# Bit-packing self-test (cl. 4.2.2.7)
+test: tests/test_bits.c src/bits.c
+	$(CC) $(CFLAGS) $(INCLUDES) -o tests/test_bits tests/test_bits.c src/bits.c $(LDFLAGS)
+	./tests/test_bits
 
 $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDFLAGS)

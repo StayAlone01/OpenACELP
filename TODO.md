@@ -86,9 +86,13 @@ Legend:
 
 ## 9. Bit allocation & multiplexing ([1] cl. 4.2.2.7, table 1/3 — 137 bits / 30 ms)
 
-- [ ] Bit-packing of all parameters into the 137-bit frame
-- [ ] Output bit stream from `ACELP_EncodeFrame` (currently the `out` parameter is unused/NULL)
-- [ ] Frame format documentation (bit order, table 3 of [1])
+- [x] Bit-packing of all parameters into the 137-bit frame (`src/bits.c`:
+      `Prm_Pack` / `Prm_Unpack`, MSB-first, table 3 order)
+- [x] Output bit stream from `ACELP_EncodeFrame` (`out` receives the 137
+      unpacked bits)
+- [x] Frame format documentation (bit order, table 3 of [1])
+- [ ] Channel coding (cl. 5): CRC + RCPC + interleaving, sensitivity classes
+      per table 4 (bits B1–B137); implement after the decoder (section 10) is done
 
 ## 10. Decoder ([1] cl. 4.2.3, [2] cl. 2.6)
 
@@ -103,7 +107,9 @@ Legend:
 - [ ] Post-processing (×2 with saturation)
 - [ ] Error concealment (`BFI` handling, [1] cl. 4.2.3.2)
 
-## 11. Channel coding / decoding ([1] cl. 5 & 6) — Decide later for the real implementation.
+## 11. Channel coding / decoding ([1] cl. 5 & 6) — **Deferred**: optional for a
+clean-channel codec; implement after the decoder (section 10) and only if a real /
+noisy-channel transmission or TETRA interop is needed.
 
 - [ ] CRC codes (speech frame classes)
 - [ ] 16-state RCPC mother code of rate 1/3

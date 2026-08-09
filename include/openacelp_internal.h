@@ -122,6 +122,12 @@ void Gain_Init(Gain_State *gs);
 void Gain_Analysis_Sub(Gain_State *gs, const float *Aq, const float *v,
                        const float *c, float gp, float gc, int sub);
 
+//-----------------------------Bit packing (cl. 4.2.2.7)-----------------------------
+#define FRAME_BITS	137			// Encoder output frame size: 137 bits per 30 ms
+
+void Prm_Pack(const uint16_t prm[23], uint8_t bits[FRAME_BITS]);
+void Prm_Unpack(const uint8_t bits[FRAME_BITS], uint16_t prm[23]);
+
 // Openacelp (top-level encode + helpers)
 void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t *prev_s, int16_t *prev_w_s);
 void Speech_Weighting(int16_t *spch_out, int16_t *spch_in, float a[][11]);

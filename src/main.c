@@ -41,7 +41,8 @@ int main(int argc, char *argv[])
 				
 				//printf("Frame %d\n", frame);
 				
-				ACELP_EncodeFrame(spch, NULL);
+				uint8_t bits[FRAME_BITS];
+				ACELP_EncodeFrame(spch, bits);
 			}
 		}
 	}

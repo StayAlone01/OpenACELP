@@ -58,3 +58,6 @@ dkms.conf
 # Editor directories and files
 plan*.md
 __pycache__/
+
+# Test binaries
+tests/test_bits

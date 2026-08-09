@@ -213,8 +213,6 @@ uint8_t Find_Pitch(int16_t *spch, int16_t *prev_s_w)
 // Arg1: input speech samples, 16-bit signed integer (this frame), arg2: 137 unpacked output bits
 void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 {
-	(void)out;	// Output bit packing not implemented yet
-	
 	// First call of this function?
 	// Make it global later,
 	// So it can be accessed outside of this function
@@ -329,6 +327,29 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 		// True quantized excitation: u = gp*v + gc*c'
 		Excitation_Update(&pitch_st, A, res, pitch_st.v[sub], code_st.c[sub],
 		                  gain_st.gp[sub], gain_st.gc[sub]);
+	}
+	
+	// Bit allocation & multiplexing (cl. 4.2.2.7, table 3): gather the 23
+	// frame parameters in table 3 order and serialize them MSB-first into
+	// the 137-bit output frame
+	if(out)
+	{
+		uint16_t prm[23];
+
+		prm[0] = lsp_cb_indices[0];
+		prm[1] = lsp_cb_indices[1];
+		prm[2] = lsp_cb_indices[2];
+
+		for(int sub = 0; sub < NUM_PITCH_SUB; sub++)
+		{
+			prm[3 + 5*sub] = pitch_st.pitch_idx[sub];
+			prm[4 + 5*sub] = code_st.code_idx[sub];
+			prm[5 + 5*sub] = code_st.sign[sub];
+			prm[6 + 5*sub] = code_st.shift[sub];
+			prm[7 + 5*sub] = gain_st.gain_idx[sub];
+		}
+
+		Prm_Pack(prm, out);
 	}
 	
 	// Update speech
