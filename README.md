@@ -1,7 +1,7 @@
 # OpenACELP
 Free ACELP vocoder. It is based on **ETSI EN 300-395-2**<sup>[1]</sup> and **TIA/EIA IS-641**<sup>[2]</sup>, but it is **not** compatible with any of them (as their codebooks can't be published as a part of this codec). **OpenACELP** is an alternative to (great) [Codec 2](https://github.com/drowe67/codec2). It uses floating point arithmetic. I aim to optimize it for the STM32 Cortex-M7, as they have a hardware floating point unit (FPU).
 
-I'm using TED-LIUM release 1 ([OpenSLR link](http://www.openslr.org/7/), [download](https://projets-lium.univ-lemans.fr/ted-lium/release1/)) as the english speech corpus and [py-lbg](https://github.com/internaut/py-lbg) for codebook generation using Linde-Buzo-Gray (LBG) algorithm.
+The codebooks are trained on **LibriSpeech `train-clean-100`** (~100 h, CC BY 4.0) with the project's own numpy-vectorized Linde–Buzo–Gray (LBG) implementation (`scripts/lbg_common.py`). A codebook is specific to the corpus it was trained on — see `docs/codebook_training.md` for the training pipeline.
 
 **Actual phase:** **picked up by VR2YEP — development in progress (irregular)**. This is a fork of the original project by **SP5WWP**.
 
@@ -18,6 +18,8 @@ I'm using TED-LIUM release 1 ([OpenSLR link](http://www.openslr.org/7/), [downlo
 | LPC order | 10 (Levinson–Durbin, 60 Hz bandwidth expansion) |
 | LP representation | LSPs in cosine domain, Chebyshev polynomial root search |
 | LSP quantization | Split-VQ: 3 codebooks (3 + 3 + 4 dims, 256/512/512 entries) → **26 bits/frame** |
+| LSP quality (validated) | Held-out LibriSpeech `dev-clean`: **0.05 % ordering fallbacks, 1.43 dB mean spectral distortion** |
+| Gain quality (validated) | Held-out LibriSpeech `dev-clean`: 64/64 codebook usage, mean \|log₂ error\| ≈ 0.3 bit |
 | LSP interpolation | Per sub-frame: 100/0, 75/25, 50/50, 25/75 (this/previous frame) |
 | Perceptual weighting | `W(z) = A(z/γ3) / A(z/γ4)` with γ3 = 0.95, γ4 = 0.60 |
 | Shaping matrix | `F(z) = A(z/γ1) / A(z/γ2)` with γ1 = 0.75, γ2 = 0.85 (planned, [1] annex F) |
@@ -80,6 +82,8 @@ Not yet implemented: bit packing (137-bit frame), decoder, channel coding.
 - The prediction uses the **last quantized** energies, cross-coupled
   (`0.5·last_pit + 0.25·last_cod − 3.0`, clamped at 0); the 2-D search minimizes the
   squared error in the log2 domain.
+- The quantized energies are limited to **27 dB (pitch) / 25 dB (code)** before the
+  gains are reconstructed, as cl. 4.2.2.6 requires.
 - The quantized gains build the true excitation `u = gp·v + gc·c'`, which updates the
   adaptive-codebook memory **per sub-frame** (pitch → codebook → gains → excitation
   update are interleaved), replacing the earlier LP-residual placeholder.
@@ -138,9 +142,9 @@ Validate with `scripts/validate_gains.py` (build with `-DGAIN_DEBUG` first) and
 ## Project structure
 
 ```
-src/       codec sources (main, preprocess, lpc, lsp, openacelp)
+src/       codec sources (main, preprocess, lpc, lsp, gain, codebook, pitch, openacelp)
 include/   public/internal headers, gamma tables, LSP codebooks
-scripts/   codebook generation tools (LBG, py-lbg)
+scripts/   codebook training & validation tools (audio conversion, LBG, generators, validators)
 ```
 
 ## References
