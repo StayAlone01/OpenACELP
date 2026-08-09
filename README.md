@@ -89,7 +89,8 @@ Not yet implemented: bit packing (137-bit frame), decoder, channel coding.
   `train-clean-100`** (~100 h, CC BY 4.0). To retrain or extend it, see
   `docs/codebook_training.md` (`make CFLAGS="... -DGAIN_TRAINING"` collects the
   features, then `scripts/gain_codebook_generator.py`).
-- The LSP codebooks (`include/LSP_codebooks.h`) are likewise trained on LibriSpeech
+- The LSP codebooks (`src/lsp_codebook.c`, declared `extern` in
+  `include/LSP_codebooks.h`) are likewise trained on LibriSpeech
   `train-clean-100`; retrain with `sh scripts/retrain_lsp_codebook.sh <raw_dir>` (or
   retrain **both** in one go with `sh scripts/retrain_codebooks.sh <raw_dir>` — gain
   first, then LSP).

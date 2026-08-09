@@ -2,7 +2,7 @@
 
 > **Current state (2026-08-09):** both codebooks have been retrained on
 > **LibriSpeech train-clean-100** (~100 h, 28 539 files) and are installed in the
-> tree (`src/gain_codebook.c`, `include/LSP_codebooks.h`). Measured on the training
+> tree (`src/gain_codebook.c`, `src/lsp_codebook.c`). Measured on the training
 > data: the LSP codebooks quantize with **~1.45 dB mean spectral distortion and
 > 0.05 % ordering fallbacks**; the gain codebook has **~0.47 bit mean quantization
 > error, 64/64 entries used**. This replaces the previous 65 s demo gain codebook
@@ -12,7 +12,7 @@
 
 This guide explains how to (re)train the OpenACELP codebooks — currently the
 **gain codebook** (cl. 4.2.2.6, `src/gain_codebook.c`) and, in the same spirit, the
-**LSP codebooks** (cl. 4.2.2.3, `include/LSP_codebooks.h`). Both are now trained on
+**LSP codebooks** (cl. 4.2.2.3, `src/lsp_codebook.c`). Both are now trained on
 **LibriSpeech `train-clean-100`** (~100 h, CC BY 4.0) — see the status note above.
 The pipeline below lets you reproduce that training or extend it (e.g. with more
 LibriSpeech data). A codebook is specific to the corpus it was trained on — using a
@@ -229,12 +229,13 @@ One line per 30 ms frame (~120 k lines per hour of speech).
 ### Step 3 — Run LBG and regenerate the codebooks
 
 ```sh
-python3 scripts/lsp_codebook_generator.py training/lsp_features.txt > include/LSP_codebooks.h
+python3 scripts/lsp_codebook_generator.py training/lsp_features.txt > src/lsp_codebook.c
 ```
 
 This splits each 10-D vector into the 3 standard groups (3 + 3 + 4), runs the
 shared numpy LBG (`scripts/lbg_common.py`) with the standard sizes
-**256 / 512 / 512** and emits `include/LSP_codebooks.h`. Every emitted entry is
+**256 / 512 / 512** and emits `src/lsp_codebook.c` (the `extern` declarations
+live in `include/LSP_codebooks.h` and never change). Every emitted entry is
 a **valid LSP sub-vector** (components in [-1, 1], strictly decreasing) — the
 generator clips and sorts each centroid, and the shared LBG re-seeds empty
 cells from a data point so split artifacts cannot drift out of range (this fix

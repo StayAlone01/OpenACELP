@@ -4,8 +4,9 @@
 # (cl. 4.2.2.3). Runs the full pipeline: build the encoder in training
 # mode, collect the 10-D cosine-domain LSP vectors from every .raw file
 # in a directory, run LBG on the 3 split groups (3/3/4 dims, 256/512/512
-# entries) and regenerate include/LSP_codebooks.h, then rebuild the
-# normal encoder.
+# entries) and regenerate src/lsp_codebook.c, then rebuild the normal
+# encoder. The extern declarations live in include/LSP_codebooks.h and
+# are hand-maintained (they do not change across retrains).
 #
 # Usage:
 #   sh scripts/retrain_lsp_codebook.sh RAW_DIR [features_file] [out_file]
@@ -13,14 +14,14 @@
 #   RAW_DIR      directory with 8 kHz 16-bit mono .raw files
 #                (produce them from any audio with scripts/audio_to_raw.py)
 #   features_file  default: /tmp/openacelp_lsp_features.txt
-#   out_file     default: include/LSP_codebooks.h
+#   out_file     default: src/lsp_codebook.c
 #
 # ------------------------------------------------------------------
 set -e
 
 RAW_DIR="${1:?usage: sh scripts/retrain_lsp_codebook.sh RAW_DIR [features] [out]}"
 FEAT="${2:-/tmp/openacelp_lsp_features.txt}"
-OUT="${3:-include/LSP_codebooks.h}"
+OUT="${3:-src/lsp_codebook.c}"
 
 if [ ! -d "$RAW_DIR" ]; then
     echo "error: no such directory: $RAW_DIR" >&2

@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------
 # retrain_codebooks.sh - retrain BOTH codebooks in one shot:
 #   1. gain codebook (cl. 4.2.2.6) -> src/gain_codebook.c
-#   2. LSP codebooks   (cl. 4.2.2.3) -> include/LSP_codebooks.h
+#   2. LSP codebooks   (cl. 4.2.2.3) -> src/lsp_codebook.c
 # (LSP training runs AFTER gain training, as requested.)
 #
 # Each step builds the encoder in its own training mode (-DGAIN_TRAINING
@@ -21,7 +21,7 @@
 #   gain_features  /tmp/openacelp_features.txt
 #   lsp_features   /tmp/openacelp_lsp_features.txt
 #   gain_out       src/gain_codebook.c
-#   lsp_out        include/LSP_codebooks.h
+#   lsp_out        src/lsp_codebook.c
 #
 # ------------------------------------------------------------------
 set -e
@@ -30,7 +30,7 @@ RAW_DIR="${1:?usage: sh scripts/retrain_codebooks.sh RAW_DIR [gain_feat] [lsp_fe
 GAIN_FEAT="${2:-/tmp/openacelp_features.txt}"
 LSP_FEAT="${3:-/tmp/openacelp_lsp_features.txt}"
 GAIN_OUT="${4:-src/gain_codebook.c}"
-LSP_OUT="${5:-include/LSP_codebooks.h}"
+LSP_OUT="${5:-src/lsp_codebook.c}"
 
 if [ ! -d "$RAW_DIR" ]; then
     echo "error: no such directory: $RAW_DIR" >&2
