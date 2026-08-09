@@ -82,11 +82,15 @@ Not yet implemented: bit packing (137-bit frame), decoder, channel coding.
   squared error in the log2 domain.
 - The quantized gains build the true excitation `u = gp·v + gc·c'`, which updates the
   adaptive-codebook memory **per sub-frame** (pitch → codebook → gains → excitation
-  update are interleaved), replacing the LP-residual placeholder from plans 4.2.2.4/5.
-- The gain codebook in `src/gain_codebook.c` is trained on a small real-speech sample
-  (~65 s) as a pipeline demo. Retrain it on a proper corpus with
-  `scripts/audio_to_raw.py` + `make CFLAGS="... -DGAIN_TRAINING"` +
-  `scripts/gain_codebook_generator.py`.
+  update are interleaved), replacing the earlier LP-residual placeholder.
+- The gain codebook in `src/gain_codebook.c` is trained on **LibriSpeech
+  `train-clean-100`** (~100 h, CC BY 4.0). To retrain or extend it, see
+  `docs/codebook_training.md` (`make CFLAGS="... -DGAIN_TRAINING"` collects the
+  features, then `scripts/gain_codebook_generator.py`).
+- The LSP codebooks (`include/LSP_codebooks.h`) are likewise trained on LibriSpeech
+  `train-clean-100`; retrain with `sh scripts/retrain_lsp_codebook.sh <raw_dir>` (or
+  retrain **both** in one go with `sh scripts/retrain_codebooks.sh <raw_dir>` — gain
+  first, then LSP).
 
 ## Building
 
@@ -102,17 +106,34 @@ The binary takes a RAW file (signed 16-bit, little-endian, 8 kHz) and runs the e
 
 ## Training the codebooks
 
-Quick path for the gain codebook:
+One-shot retraining of both codebooks (gain then LSP) from a directory of 8 kHz
+16-bit mono `.raw` files:
 
 ```sh
-python3 scripts/audio_to_raw.py <audio_dir> <raw_dir>          # any format -> 8 kHz RAW
+python3 scripts/audio_to_raw.py <audio_dir> <raw_dir> --recursive   # any format -> 8 kHz RAW
+sh scripts/retrain_codebooks.sh <raw_dir>
+```
+
+Per-codebook quick paths:
+
+```sh
+# gain only
+sh scripts/retrain_gain_codebook.sh <raw_dir>
+# LSP only
+sh scripts/retrain_lsp_codebook.sh <raw_dir>
+```
+
+Manual gain path (what `retrain_gain_codebook.sh` does):
+
+```sh
 make clean && make CFLAGS="-Wall -Wextra -O2 -std=c99 -DGAIN_TRAINING"
-for f in <raw_dir>/*.raw; do ./openacelp "$f" 2>> features.txt; done
+for f in <raw_dir>/*.raw; do ./openacelp "$f" 2>> features.txt > /dev/null; done
 python3 scripts/gain_codebook_generator.py features.txt > src/gain_codebook.c
 make clean && make
 ```
 
-Validate with `scripts/validate_gains.py` (build with `-DGAIN_DEBUG` first).
+Validate with `scripts/validate_gains.py` (build with `-DGAIN_DEBUG` first) and
+`scripts/validate_lsp.py` (build with `-DLSP_DEBUG` first).
 
 ## Project structure
 

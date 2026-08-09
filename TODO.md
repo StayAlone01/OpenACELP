@@ -22,7 +22,7 @@ Legend:
 - [x] Modified Hamming window (`Analysis_Window_Init`, `Window_Speech`)
 - [x] Autocorrelation with 60 Hz bandwidth expansion (`Autocorr`)
 - [x] Levinson-Durbin solver, filter stability fallback (`LD_Solver`)
-- [ ] Verify LPC analysis is bit/behaviourally correct vs. reference (only partially validated)
+- [ ] Verify LPC analysis is bit/behaviourally correct vs. the standard (only partially validated)
 
 ## 3. LP ↔ LSP conversion ([1] cl. 4.2.2.2, [2] cl. 2.2.3)
 
@@ -34,7 +34,13 @@ Legend:
 
 - [x] Split vector quantization of LSPs (3 codebooks: 3+3+4, 8/9/9 bits = 26 bits) — full search (`LSP_SVQ`)
 - [x] Quantized & unquantized LSP interpolation per sub-frame
-- [ ] **Retrain / finalize codebooks** — current ones are a *test* set trained on ~44 min of TED-LIUM (FrankGehry_1990.sph only). Needs much more training data + validation for decent quality
+- [x] LSP codebook retraining pipeline (`scripts/lsp_codebook_generator.py`, `-DLSP_TRAINING`
+      feature collection, shared numpy LBG to 256/512/512; `sh scripts/retrain_lsp_codebook.sh`,
+      or both codebooks in one go with `sh scripts/retrain_codebooks.sh`)
+- [ ] **Retrain / finalize LSP codebooks** — current ones are a *test* set trained on ~44 min of
+      TED-LIUM (FrankGehry_1990.sph only). Pipeline is ready; run it on a proper multi-hour corpus
+      (LibriSpeech train-clean-100) and validate with `scripts/validate_lsp.py`
+      (measured: ~100 % ordering fallbacks / ~8 dB spectral distortion on codec2 test files today)
 
 ## 5. Perceptual weighting ([1] cl. 4.1, 4.2.2; `W(z) = A(z/γ1)/A(z/γ2)`, γ1=0.85, γ2=0.85)
 
@@ -50,8 +56,8 @@ Legend:
   - [x] Adaptive codebook construction from past excitation (32-tap Hamming-windowed sinc interpolation for fractional delays; extension by LP residual when delay < 60)
   - [x] Sub-frame search maximizing eq. (24); ±1/3, ±2/3 refinement via 8-tap interpolation of the normalized correlation
   - [x] Pitch gain (eq. 25), clamped to [0, 1.2]
-  - [x] Pitch delay coding: 8 bits (sf1) + 5 bits (sf2–4), own index mapping (plan D3), stored in `Pitch_State.pitch_idx`
-  - [x] Replace the LP-residual placeholder excitation with the true quantized excitation `u = gp·v + gc·c'` (done with 4.2.2.6, plan D5)
+  - [x] Pitch delay coding: 8 bits (sf1) + 5 bits (sf2–4), own index mapping, stored in `Pitch_State.pitch_idx`
+  - [x] Replace the LP-residual placeholder excitation with the true quantized excitation `u = gp·v + gc·c'` (done with cl. 4.2.2.6)
 
 ## 7. Algebraic (innovative) codebook ([1] cl. 4.2.2.5)
 
@@ -111,7 +117,7 @@ Legend:
 
 - [ ] Decoder + encoder in a single working pipeline (encode → channel → decode)
 - [ ] Round-trip / listening tests with TED-LIUM corpus
-- [ ] Compare with reference: SNR, PESQ-style metrics, bit-exactness where applicable
+- [ ] Compare with the standard: SNR, PESQ-style metrics, bit-exactness where applicable
 - [ ] WAV/Raw file I/O polish; CLI encode/decode tools
 - [ ] STM32 Cortex-M7 (FPU) optimization pass + profiling
 - [ ] `scripts/` cleanup: LBG (`lbg.c`, `q_codebook_generator.py`) and `sound_process.sh` integration with final codebooks

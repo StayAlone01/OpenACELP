@@ -7,15 +7,13 @@
 //
 // The entries are log2-energy prediction errors (err_pit, err_cod)
 // in the NATURAL float log2 domain used by src/gain.c (no scaling
-// offsets, plan decision D2).
+// offsets).
 //
 // The table itself lives in src/gain_codebook.c; regenerate it with
 // scripts/gain_codebook_generator.py.
 //
-// NOTE: the current table is trained on a SMALL sample of real speech
-// (~65 s of the codec2 test files) as a demonstration of the training
-// pipeline. It must be retrained on a proper corpus (e.g. LibriSpeech,
-// CC BY 4.0) - see plan-4.2.2.6.md (D1).
+// NOTE: trained with scripts/gain_codebook_generator.py on LibriSpeech
+// train-clean-100 (~100 h, CC BY 4.0) — see docs/codebook_training.md.
 //------------------------------------------------------------------
 
 #ifndef GAIN_CODEBOOK

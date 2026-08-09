@@ -4,8 +4,7 @@
 // Closed-loop long-term prediction analysis
 // (EN 300 395-2 cl. 4.2.2.4 - "Long-term prediction analysis")
 //
-// Implemented from the standard text only. See docs/plan-4.2.2.4.md
-// for the design decisions (D1-D3).
+// Implemented from the standard text only.
 //------------------------------------------------------------------
 
 // Fractional-delay interpolation filters. The standard (cl. 4.2.2.4) specifies the
@@ -97,8 +96,8 @@ static void weighted_impulse(const float *Aq, float *h)
 }
 
 // LP residual of one sub-frame: r(n) = s'(n) + sum_i a_i s'(n-i).
-// The quantized LP parameters are used (this is also the placeholder excitation,
-// plan decision D1). Updates s_mem (last 10 samples of the sub-frame).
+// The quantized LP parameters are used (this is also the placeholder excitation).
+// Updates s_mem (last 10 samples of the sub-frame).
 static void lp_residual(const int16_t *sprime, const float *Aq, float *s_mem, float *res)
 {
 	for(int n = 0; n < SUBFRAME_SIZ; n++)
@@ -331,7 +330,7 @@ static float pitch_gain(const float *x, const float *y)
 	return gp;
 }
 
-// Pitch delay coding (plan decision D3).
+// Pitch delay coding.
 // Sub-frame 1 (8 bits): idx 0..196   -> 19 1/3 .. 84 2/3 in 1/3 steps,
 //                       idx 197..255 -> integers 85..143.
 // Sub-frames 2-4 (5 bits): idx 0..31 -> T1 + (idx-17)/3 (offset -17..+14 thirds).
@@ -443,9 +442,9 @@ void Pitch_Analysis_Sub(Pitch_State *ps, const int16_t *sprime, const float *Aq,
 
 // Excitation memory update (cl. 4.2.2.6): build the QUANTIZED excitation
 //   u(n) = gp_q*v(n) + gc_q*c'(n)
-// store it as the new past excitation (replacing the LP residual placeholder,
-// plan 4.2.2.4 D1 / 4.2.2.5 D3) and update the weighted-synthesis filter memory
-// with the residual error (res - u), as the standard prescribes.
+// store it as the new past excitation (replacing the LP residual placeholder)
+// and update the weighted-synthesis filter memory with the residual error
+// (res - u), as the standard prescribes.
 void Excitation_Update(Pitch_State *ps, const float *Aq, const float *res,
                        const float *v, const float *c, float gp_q, float gc_q)
 {

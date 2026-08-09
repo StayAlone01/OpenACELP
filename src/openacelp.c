@@ -213,6 +213,8 @@ uint8_t Find_Pitch(int16_t *spch, int16_t *prev_s_w)
 // Arg1: input speech samples, 16-bit signed integer (this frame), arg2: 137 unpacked output bits
 void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 {
+	(void)out;	// Output bit packing not implemented yet
+	
 	// First call of this function?
 	// Make it global later,
 	// So it can be accessed outside of this function
@@ -307,7 +309,7 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	// Closed-loop long-term prediction (cl. 4.2.2.4), algebraic codebook search
 	// (cl. 4.2.2.5) and gain quantization (cl. 4.2.2.6), INTERLEAVED per
 	// sub-frame so the quantized excitation u = gp*v + gc*c' feeds the
-	// adaptive-codebook memory of the next sub-frame (plan 4.2.2.6, D5)
+	// adaptive-codebook memory of the next sub-frame (cl. 4.2.2.6)
 	float res[SUBFRAME_SIZ];
 	for(int sub = 0; sub < NUM_PITCH_SUB; sub++)
 	{

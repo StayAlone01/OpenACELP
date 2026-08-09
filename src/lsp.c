@@ -49,7 +49,7 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 	float *coefs;							// Coeff set that we are using
 	uint8_t found=0;						// Found roots
 	uint8_t loc=0;							// Location in the grid
-	float x1, x2, y1, y2, xm, ym, x, y;		// Vals for root search
+	float x1, x2, y1, y2, xm, ym, y;		// Vals for root search
 
 	// 5 polynomial coeffs
 	for(uint8_t i=0; i<5; i++)
@@ -175,11 +175,25 @@ void LP_LSP(float *prev_LSP, float *a, float *LSP)
 // Arg3: codebook indices output (3), arg4: previous frame quantized LSPs (10)
 void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev)
 {
-	uint16_t ind_rv[3];
+	uint16_t ind_rv[3] = {0, 0, 0};	// Silence -Wmaybe-uninitialized (loops always run)
+#ifdef LSP_DEBUG
+	int fallback = 0;				// Ordering check failed this frame?
+#endif
 	
 	float se;
 	float delta;
 	float min=10000.0;
+
+#ifdef LSP_TRAINING
+	// Training hook: dump the raw
+	// LSP vector (cosine domain, 10 values) to stderr, one line per frame.
+	// The split codebooks model the LSP distribution directly, so the training
+	// features are the unquantized LSPs themselves. Collect them with:
+	//   make clean && make CFLAGS="-Wall -Wextra -O2 -std=c99 -DLSP_TRAINING"
+	//   for f in raw/*.raw; do ./openacelp "$f" 2>> lsp_features.txt > /dev/null; done
+	for(uint8_t i=0; i<10; i++)
+		fprintf(stderr, "%f%c", lsp[i], (i==9) ? '\n' : ' ');
+#endif
 	
 	// Codebook 1 search
 	for(uint16_t i=0; i<size_cb1; i++)
@@ -240,9 +254,16 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev)
 	}
 	
 	// Return quantized vector...
-	memcpy(&q_lsp[0], &cb1[ind_rv[0]], 3*sizeof(float));
-	memcpy(&q_lsp[3], &cb2[ind_rv[1]], 3*sizeof(float));
-	memcpy(&q_lsp[6], &cb3[ind_rv[2]], 4*sizeof(float));
+	// NOTE: ind_rv[] holds the ENTRY index (the search loop stores i, not the
+	// flat array offset), so the codebook lookup must scale by the vector
+	// dimension (3, 3 and 4). Using ind_rv[] directly as a flat offset copied
+	// the wrong entries — e.g. entry 61 of cb1 became cb1[61..63] (entry 20) —
+	// which made the ordering check below fail on ~99% of frames and forced a
+	// fallback to the previous frame's vector (with q_lsp_prev then stuck at
+	// the Init_LSP defaults forever).
+	memcpy(&q_lsp[0], &cb1[ind_rv[0]*3], 3*sizeof(float));
+	memcpy(&q_lsp[3], &cb2[ind_rv[1]*3], 3*sizeof(float));
+	memcpy(&q_lsp[6], &cb3[ind_rv[2]*4], 4*sizeof(float));
 	
 	// ...and codebook indices
 	memcpy(ind, ind_rv, 3*sizeof(uint16_t));
@@ -255,11 +276,29 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev)
 	{
 		if(q_lsp[i] <= q_lsp[i+1])
 		{
+#ifdef LSP_DEBUG
+			fallback = 1;
+#endif
 			if(q_lsp_prev != NULL)
 				memcpy(q_lsp, q_lsp_prev, 10*sizeof(float));
 			break;
 		}
 	}
+
+#ifdef LSP_DEBUG
+	// Validation hook: one line per
+	// frame on stderr — 10 unquantized LSPs, 10 quantized LSPs, the 3 codebook
+	// indices and a fallback flag (1 when the ordering check failed and q_lsp
+	// was replaced by the previous frame's vector). Consumed by
+	// scripts/validate_lsp.py:
+	//   make clean && make CFLAGS="-Wall -Wextra -O2 -std=c99 -DLSP_DEBUG"
+	//   ./openacelp file.raw > /dev/null 2> lsp_debug.txt
+	//   python3 scripts/validate_lsp.py lsp_debug.txt
+	fprintf(stderr, "LSP");
+	for(uint8_t i=0; i<10; i++) fprintf(stderr, " %f", lsp[i]);
+	for(uint8_t i=0; i<10; i++) fprintf(stderr, " %f", q_lsp[i]);
+	fprintf(stderr, " %u %u %u %d\n", ind_rv[0], ind_rv[1], ind_rv[2], fallback);
+#endif
 }
 
 // Interpolate LSP vectors for the 4 sub-frames

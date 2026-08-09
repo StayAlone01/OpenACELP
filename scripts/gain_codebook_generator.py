@@ -4,18 +4,18 @@
 #
 # Usage:
 #   python3 gain_codebook_generator.py [--clip-lo LO] [--clip-hi HI] \
-#       features.txt > src/gain_codebook.c
+#       [--max-points N] features.txt [more.txt ...] > src/gain_codebook.c
 #
-# The features file contains one "(err_pit, err_cod)" pair per line,
+# The feature files contain one "(err_pit, err_cod)" pair per line,
 # collected from the encoder built with -DGAIN_TRAINING:
 #
 #   make clean && make CFLAGS="-Wall -Wextra -O2 -std=c99 -DGAIN_TRAINING"
-#   ./openacelp speech.raw 2> features.txt
+#   for f in raw/*.raw; do ./openacelp "$f" 2>> features.txt > /dev/null; done
 #
 # The script runs the Linde-Buzo-Gray (LBG) algorithm to cluster the
 # features into 64 2-D vectors (6 bits) and emits a C source file with
 # the codebook table, in the natural float log2-energy scale used by
-# src/gain.c (see docs/plan-4.2.2.6.md, decisions D1/D2).
+# src/gain.c (see docs/codebook_training.md).
 #
 # IMPORTANT: keep the quiet/silence frames in the training data. In the
 # natural float scale their errors are very negative (down to log2 of the
@@ -25,105 +25,24 @@
 # what makes quiet frames reconstruct to ~zero gain. Optional --clip-lo/
 # --clip-hi only remove absurd outliers (default: no clipping).
 #
-# A tiny pure-Python LBG is included so the script has no dependencies;
-# it is the same algorithm as the py-lbg tool used for the LSP codebooks.
+# The LBG is vectorised with numpy and both the text parsing and the
+# Lloyd iterations run in chunks, so it handles tens of millions of
+# points with low memory: ~50 M points (100 h of speech) peak at
+# roughly 1 GB RAM, well within any modern machine. --max-points
+# optionally subsamples (not needed normally).
+#
+# Requires: numpy (python3 -m pip install numpy). The shared, vectorised
+# LBG machinery (chunked text parsing, batched Lloyd iterations) lives in
+# scripts/lbg_common.py.
 # ------------------------------------------------------------------
 
-import math
+import os
 import sys
 
+from lbg_common import read_features, lbg
+
 CB_SIZE = 64  # codebook size (6 bits)
-MAX_ITER = 200  # Lloyd iterations per split stage
-
-
-def read_features(paths, clip_lo=None, clip_hi=None):
-    """Read (err_pit, err_cod) lines from one or more feature files."""
-    if isinstance(paths, str):
-        paths = [paths]
-    feats = []
-    for path in paths:
-        with open(path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                parts = line.split()
-                if len(parts) < 2:
-                    continue
-                try:
-                    x, y = float(parts[0]), float(parts[1])
-                except ValueError:
-                    continue
-                if not (math.isfinite(x) and math.isfinite(y)):
-                    continue
-                if clip_lo is not None:
-                    x = max(clip_lo, x)
-                    y = max(clip_lo, y)
-                if clip_hi is not None:
-                    x = min(clip_hi, x)
-                    y = min(clip_hi, y)
-                feats.append((x, y))
-    return feats
-
-
-def centroid(points):
-    n = len(points)
-    if n == 0:
-        return None
-    sx = sum(p[0] for p in points)
-    sy = sum(p[1] for p in points)
-    return (sx / n, sy / n)
-
-
-def dist2(a, b):
-    dx = a[0] - b[0]
-    dy = a[1] - b[1]
-    return dx * dx + dy * dy
-
-
-def lloyd(points, centers):
-    """One assignment + centroid-update pass. Returns new centers."""
-    cells = [[] for _ in centers]
-    for p in points:
-        best, bd = 0, dist2(p, centers[0])
-        for i in range(1, len(centers)):
-            d = dist2(p, centers[i])
-            if d < bd:
-                best, bd = i, d
-        cells[best].append(p)
-
-    new = []
-    for i, cell in enumerate(cells):
-        c = centroid(cell)
-        if c is None:
-            # Empty cell: keep the old center, slightly jittered
-            c = (centers[i][0] + 0.01, centers[i][1] - 0.01)
-        new.append(c)
-    return new
-
-
-def lbg(points, n):
-    """Binary-splitting LBG. n must be a power of two."""
-    centers = [centroid(points)]
-    eps = 0.5
-
-    while len(centers) < n:
-        # Split every center into two
-        split = []
-        for x, y in centers:
-            split.append((x + eps, y))
-            split.append((x - eps, y))
-        centers = split
-
-        # Refine until convergence
-        for _ in range(MAX_ITER):
-            prev = centers
-            centers = lloyd(points, centers)
-            moved = max(dist2(centers[i], prev[i]) for i in range(len(centers)))
-            if moved < 1e-6:
-                break
-
-    return centers[:n]
+DIM = 2  # (err_pit, err_cod)
 
 
 def emit_c(centers):
@@ -138,8 +57,9 @@ def emit_c(centers):
     print("{")
     for i in range(0, len(centers), 4):
         row = []
-        for c in centers[i : i + 4]:
-            row.append("{%7.3f, %7.3f}" % c)
+        for k in range(i, min(i + 4, len(centers))):
+            c = centers[k]
+            row.append("{%7.3f, %7.3f}" % (float(c[0]), float(c[1])))
         print("\t" + ",  ".join(row) + ",")
     print("};")
 
@@ -148,26 +68,31 @@ def main():
     args = sys.argv[1:]
     clip_lo = None
     clip_hi = None
+    max_points = None
     while args and args[0].startswith("--"):
-        if args[0] == "--clip-lo" and len(args) > 1:
-            clip_lo = float(args[1])
-            args = args[2:]
-        elif args[0] == "--clip-hi" and len(args) > 1:
-            clip_hi = float(args[1])
+        opt = args[0]
+        if opt in ("--clip-lo", "--clip-hi", "--max-points") and len(args) > 1:
+            val = args[1]
+            if opt == "--clip-lo":
+                clip_lo = float(val)
+            elif opt == "--clip-hi":
+                clip_hi = float(val)
+            else:
+                max_points = int(val)
             args = args[2:]
         else:
-            print("unknown option: %s" % args[0], file=sys.stderr)
+            print("unknown option: %s" % opt, file=sys.stderr)
             sys.exit(1)
 
     if len(args) < 1:
         print(
-            "usage: %s [--clip-lo LO] [--clip-hi HI] features.txt [more.txt ...]"
-            % sys.argv[0],
+            "usage: %s [--clip-lo LO] [--clip-hi HI] [--max-points N] "
+            "features.txt [more.txt ...]" % sys.argv[0],
             file=sys.stderr,
         )
         sys.exit(1)
 
-    feats = read_features(args, clip_lo, clip_hi)
+    feats = read_features(args, DIM, clip_lo, clip_hi, max_points)
     if len(feats) < CB_SIZE:
         print(
             "error: need at least %d feature vectors, got %d" % (CB_SIZE, len(feats)),
@@ -175,9 +100,15 @@ def main():
         )
         sys.exit(1)
 
+    print(
+        "LBG: %d feature vectors -> %d entries ..." % (len(feats), CB_SIZE),
+        file=sys.stderr,
+    )
     centers = lbg(feats, CB_SIZE)
     emit_c(centers)
 
 
 if __name__ == "__main__":
+    # make `from lbg_common import ...` work no matter the CWD
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     main()

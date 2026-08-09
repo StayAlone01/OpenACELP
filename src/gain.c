@@ -6,16 +6,17 @@
 // Joint 2-D vector quantization of the pitch gain gp and the innovative
 // codebook gain gc in the log2-energy domain, 6 bits per sub-frame.
 //
-// Implemented from the standard text only. See docs/plan-4.2.2.6.md
-// for the design decisions (D1-D5):
+// Implemented from the standard text only. The D1-D5 design decisions
+// are summarised below; see docs/codebook_training.md for the training:
 //   D1 - gain codebook trained by us (include/gain_codebook.h)
 //   D2 - energies in the natural float log2 domain (no scaling offsets)
-//   D3 - no energy limiting (not in the standard)
+//   D3 - quantized energies limited to 27 dB (pitch) / 25 dB (code), as
+//        required by the standard (cl. 4.2.2.6)
 //   D4 - prediction state initialised to 0
 //   D5 - interleaved per sub-frame (see ACELP_EncodeFrame)
 //------------------------------------------------------------------
 
-// Small guard so log2 never sees a zero argument (plan D2: the codebook is
+// Small guard so log2 never sees a zero argument (D2: the codebook is
 // trained in the same convention, so this does not shift the operating point).
 #define LOG_GUARD	1e-12f
 
@@ -93,7 +94,8 @@ static float gain_pit_q(float last_pit, float e_p)
 	return g;
 }
 
-// Quantized code gain: 2^(0.5*(last_cod - e_c)); no upper clamp (D3).
+// Quantized code gain: 2^(0.5*(last_cod - e_c)). No clamp on the gain
+// itself (the standard only limits the *energy* to 25 dB, above).
 static float gain_cod_q(float last_cod, float e_c)
 {
 	return exp2f(0.5f*(last_cod - e_c));
@@ -156,12 +158,23 @@ void Gain_Analysis_Sub(Gain_State *gs, const float *Aq, const float *v,
 	gs->last_ener_pit = gain_cb[idx][0] + pred_pit;
 	gs->last_ener_cod = gain_cb[idx][1] + pred_cod;
 
+	// Limit the quantized energies to 27 dB (pitch) / 25 dB (code),
+	// cl. 4.2.2.6: "These quantized energies ... are limited respectively to
+	// 27 and 25 in order to avoid bursts of energy in case of non-recovered
+	// transmission errors." The future decoder's Dec_Ener must apply the same clamps.
+	if(gs->last_ener_pit > 27.0f) gs->last_ener_pit = 27.0f;
+	if(gs->last_ener_cod > 25.0f) gs->last_ener_cod = 25.0f;
+
 	// Quantized gains
 	gs->gp[sub] = gain_pit_q(gs->last_ener_pit, e_p);
 	gs->gc[sub] = gain_cod_q(gs->last_ener_cod, e_c);
 
 #ifdef GAIN_DEBUG
-	printf("frame=%llu sf=%d idx=%u gp_q=%.3f gc_q=%.3f gp=%.3f gc=%.3f e_p=%.2f e_c=%.2f err=(%.2f,%.2f)\n",
+	// Debug hook (scripts/validate_gains.py). Printed to stderr like the
+	// LSP_DEBUG hook in src/lsp.c, so capturing both with 2>&1 cannot
+	// interleave them mid-line (stdout is block-buffered when piped and
+	// would otherwise split the lines against the unbuffered stderr).
+	fprintf(stderr, "frame=%llu sf=%d idx=%u gp_q=%.3f gc_q=%.3f gp=%.3f gc=%.3f e_p=%.2f e_c=%.2f err=(%.2f,%.2f)\n",
 	       (unsigned long long)frame, sub, idx, gs->gp[sub], gs->gc[sub],
 	       gp, gc, e_p, e_c, err_pit, err_cod);
 #endif

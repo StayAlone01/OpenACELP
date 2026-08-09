@@ -44,6 +44,7 @@ openacelp
 *.su
 *.idb
 *.pdb
+lsp_debug.txt
 
 # Kernel Module Compile Results
 *.mod*
@@ -57,3 +58,4 @@ dkms.conf
 # Editor directories and files
 plan*.md
 codebook_training.md
+__pycache__/

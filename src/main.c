@@ -8,7 +8,7 @@ uint64_t frame = 0;
 
 // Main routine
 // Argv[1]: file name (RAW, signed 16-bit, Little-Endian, 8000Hz)
-int main(uint8_t argc, uint8_t *argv[])
+int main(int argc, char *argv[])
 {
 	FILE *aud;
 	

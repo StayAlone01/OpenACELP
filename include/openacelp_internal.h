@@ -37,8 +37,8 @@
 extern float		w[LPC_WINDOW_SIZ];				// Modified Hamming window w(n) coeffs for speech analysis
 extern float		grid[GRID_SIZ+1];				// Grid of values for LSP computation
 												// (+1 for the w=pi endpoint q=-1.0: the grid spans
-												//  q=1.0..-1.0 in GRID_SIZ equal steps, as in the
-												//  reference grid[grid_points+1])
+												//  q=1.0..-1.0 in GRID_SIZ equal steps, the "60 points"
+												//  equally spaced between 0 and pi of cl. 4.2.2.2)
 
 extern int16_t		prev_spch_frame[FRAME_SIZ];		// Previous speech frame
 extern int16_t		prev_w_spch_frame[FRAME_SIZ];	// Previous speech frame (weighted)
