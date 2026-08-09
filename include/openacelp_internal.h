@@ -47,6 +47,7 @@ extern uint64_t		frame;							// Frame number - for our info
 
 //-----------------------------Function declarations------------------------------
 // Preprocess
+void Pre_Process_Init(void);
 void Speech_Pre_Process(int16_t *inp, int16_t *outp);
 
 // Lpc

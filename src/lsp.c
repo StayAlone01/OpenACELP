@@ -268,6 +268,30 @@ void LSP_SVQ(float *lsp, float *q_lsp, uint16_t *ind, float *q_lsp_prev)
 	// ...and codebook indices
 	memcpy(ind, ind_rv, 3*sizeof(uint16_t));
 	
+	// Minimum distance between q_lsp[2] and q_lsp[3] (0.028 in the cosine
+	// domain) and q_lsp[5] and q_lsp[6] (0.038). This adjustment MUST be
+	// applied identically here and in LSP_Decode() (cl. 4.2.3.1.1): the
+	// decoder reconstructs the quantized vector from the codebook indices
+	// with this adjustment, so the encoder's quantized LSPs (and hence the
+	// A(z) used in the closed loop) have to be adjusted the same way,
+	// otherwise encoder and decoder drift apart.
+	{
+		float temp = 0.028f - (q_lsp[2] - q_lsp[3]);
+		if(temp > 0.0f)
+		{
+			temp *= 0.5f;
+			q_lsp[2] += temp;
+			q_lsp[3] -= temp;
+		}
+		temp = 0.038f - (q_lsp[5] - q_lsp[6]);
+		if(temp > 0.0f)
+		{
+			temp *= 0.5f;
+			q_lsp[5] += temp;
+			q_lsp[6] -= temp;
+		}
+	}
+	
 	// The 3 sub-vectors are quantized independently, so the concatenated result
 	// is not guaranteed to preserve the LSP ordering (q1 > q2 > ... > q10 in the
 	// cosine domain). An unordered vector would make the synthesis filter 1/A(z)

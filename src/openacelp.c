@@ -32,7 +32,7 @@ void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t
 			if(n>=i)
 				tmp += b[i] * inp[n-i];
 			else
-				tmp += b[i] * prev_s[FRAME_SIZ+(n-i)];
+				tmp += b[i] * prev_s[SUBFRAME_SIZ+(n-i)];
 		}
 		for(uint8_t i=1; i<=10; i++)
 		{
@@ -42,7 +42,7 @@ void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t
 			if(n>=i)
 				tmp -= a[i] * out[n-i];
 			else
-				tmp -= a[i] * prev_w_s[FRAME_SIZ+(n-i)];
+				tmp -= a[i] * prev_w_s[SUBFRAME_SIZ+(n-i)];
 		}
 		
 		out[n]=(int16_t)(tmp/11.0);	// Make it fit back into the int16_t
@@ -82,37 +82,13 @@ void Speech_Weighting(int16_t *spch_out, int16_t *spch_in, float a[][11])
 		{
 			Filter(&spch_tmp[SUBFRAME_SIZ*i], &spch_in[SUBFRAME_SIZ*i], A_num, A_denom, SUBFRAME_SIZ,
 					&prev_spch_frame[FRAME_SIZ-60], &prev_w_spch_frame[FRAME_SIZ-60]);
-			if(frame==23)
-			{
-				for(uint8_t j=0; j<60; j++)
-					printf("%d\n", prev_w_spch_frame[FRAME_SIZ-60+j]);
-			}
 		}
 		else
 		{
 			Filter(&spch_tmp[SUBFRAME_SIZ*i], &spch_in[SUBFRAME_SIZ*i], A_num, A_denom, SUBFRAME_SIZ,
 					&spch_in[SUBFRAME_SIZ*(i-1)], &spch_tmp[SUBFRAME_SIZ*(i-1)]);
-			if(frame==23)
-			{
-				for(uint8_t j=0; j<60; j++)
-					printf("%d\n", spch_tmp[SUBFRAME_SIZ*(i-1)+j]);
-			}
 		}
 	}
-	
-	// Test
-	/*if(frame==23)
-	{
-		for(uint8_t i=0; i<11; i++)
-		{
-			printf("%f\n", A_num[i]);
-		}
-		printf("\n");
-		for(uint8_t i=0; i<11; i++)
-		{
-			printf("%f\n", A_denom[i]);
-		}
-	}*/
 	
 	// Move from buffer to the output
 	for(uint8_t i=0; i<FRAME_SIZ; i++)
@@ -293,16 +269,8 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 	// Input - pre-processed speech
 	Speech_Weighting(spch_out, spch_in, lp);
 	
-	/*if(frame==23)
-	{
-		printf("----\n");
-		for(uint16_t i=0; i<FRAME_SIZ; i++)
-			printf("%d\n", spch_in[i]);
-	}*/
-	
 	// Find open loop pitch
 	uint8_t T_0 = Find_Pitch(spch_out, prev_w_spch_frame);
-	printf("%d\n", T_0);
 
 	// Closed-loop long-term prediction (cl. 4.2.2.4), algebraic codebook search
 	// (cl. 4.2.2.5) and gain quantization (cl. 4.2.2.6), INTERLEAVED per
@@ -366,6 +334,7 @@ void ACELP_EncodeFrame(int16_t *speech, uint8_t *out)
 // Arg3,4: memory for speech weighting filter
 void ACELP_Init(float *search_grid, float *analysis_window, int16_t *f_mem1, int16_t *f_mem2)
 {
+	Pre_Process_Init();
 	Grid_Generate(search_grid);
 	Analysis_Window_Init(analysis_window);
 	Pitch_Interp_Init();
