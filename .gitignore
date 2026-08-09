@@ -57,5 +57,4 @@ dkms.conf
 
 # Editor directories and files
 plan*.md
-codebook_training.md
 __pycache__/
