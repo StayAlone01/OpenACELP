@@ -164,10 +164,10 @@ tar xzf train-clean-100.tar.gz            # -> LibriSpeech/train-clean-100/<book
 cd /home/garyluk/OpenACELP
 python3 scripts/audio_to_raw.py ~/libri/LibriSpeech/train-clean-100 ~/libri/raw --recursive
 
-# 3) train BOTH codebooks (gain first, then LSP) — or just the gain one:
+# 3) train BOTH codebooks (LSP first, then gain two-pass) — or just one:
 sh scripts/retrain_codebooks.sh ~/libri/raw
-#   (gain only:  sh scripts/retrain_gain_codebook.sh ~/libri/raw
-#    LSP only:   sh scripts/retrain_lsp_codebook.sh  ~/libri/raw )
+#   (gain only:  sh scripts/retrain_gain_codebook_2pass.sh ~/libri/raw
+#    LSP only:   sh scripts/retrain_lsp_codebook.sh ~/libri/raw)
 
 # 4) validate on a HELD-OUT set (dev-clean is not used for training):
 #    download + convert it the same way as train-clean-100
@@ -285,8 +285,8 @@ the ordering-fallback rate. It uses an exact Python port of the encoder's
 # LSP codebooks only
 sh scripts/retrain_lsp_codebook.sh /path/to/raw_out/
 
-# BOTH codebooks: gain first, then LSP (each rebuilds the encoder in its own
-# training mode), normal encoder rebuilt at the end
+# BOTH codebooks: LSP first, then gain two-pass (each rebuilds the encoder
+# in its own training mode), normal encoder rebuilt at the end
 sh scripts/retrain_codebooks.sh /path/to/raw_out/
 ```
 

@@ -9,19 +9,21 @@
 # are hand-maintained (they do not change across retrains).
 #
 # Usage:
-#   sh scripts/retrain_lsp_codebook.sh RAW_DIR [features_file] [out_file]
+#   sh scripts/retrain_lsp_codebook.sh RAW_DIR [features_file] [out_file] [restarts]
 #
 #   RAW_DIR      directory with 8 kHz 16-bit mono .raw files
 #                (produce them from any audio with scripts/audio_to_raw.py)
 #   features_file  default: /tmp/openacelp_lsp_features.txt
 #   out_file     default: src/lsp_codebook.c
+#   restarts     number of LBG restarts (--restarts, default 1)
 #
 # ------------------------------------------------------------------
 set -e
 
-RAW_DIR="${1:?usage: sh scripts/retrain_lsp_codebook.sh RAW_DIR [features] [out]}"
+RAW_DIR="${1:?usage: sh scripts/retrain_lsp_codebook.sh RAW_DIR [features] [out] [restarts]}"
 FEAT="${2:-/tmp/openacelp_lsp_features.txt}"
 OUT="${3:-src/lsp_codebook.c}"
+RESTARTS="${4:-1}"
 
 if [ ! -d "$RAW_DIR" ]; then
     echo "error: no such directory: $RAW_DIR" >&2
@@ -38,9 +40,9 @@ for f in $(find "$RAW_DIR" -name '*.raw' | sort); do
     ./openacelp "$f" 2>> "$FEAT" > /dev/null
 done
 
-echo "[3/4] LBG -> $OUT  ($(wc -l < "$FEAT") frames)"
+echo "[3/4] LBG (ordering-constrained Lloyd, $RESTARTS restart(s)) -> $OUT  ($(wc -l < "$FEAT") frames)"
 TMPOUT="$OUT.tmp.$$"
-python3 scripts/lsp_codebook_generator.py "$FEAT" > "$TMPOUT"
+python3 scripts/lsp_codebook_generator.py --restarts "$RESTARTS" "$FEAT" > "$TMPOUT"
 mv -f "$TMPOUT" "$OUT"
 
 echo "[4/4] rebuilding the normal encoder"
