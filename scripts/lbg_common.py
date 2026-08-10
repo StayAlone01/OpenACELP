@@ -89,9 +89,13 @@ def read_features(paths, dim, clip_lo=None, clip_hi=None, max_points=None):
     return X
 
 
-def lloyd(X, centers):
+def lloyd(X, centers, proj=None):
     """One vectorised assignment + centroid-update pass, processed in
-    batches. Returns (updated centers (K, dim), total squared distortion)."""
+    batches. Returns (updated centers (K, dim), total squared distortion).
+    If proj is given, it is applied to the updated centers (a callable
+    (K, dim) -> (K, dim) that maps a raw centroid onto the feasible set,
+    e.g. clip/sort/order for LSP sub-vectors), so the codebook stays valid
+    throughout the iteration instead of only at the very end."""
     K = len(centers)
     dim = X.shape[1]
     cf = centers.astype(np.float32)  # keep the distance matrix in float32
@@ -124,30 +128,57 @@ def lloyd(X, centers):
             # the split stages — harmless for the gain codebook, but a
             # 2-D/4-D LSP codebook must stay in the valid cosine range.
             new[k] = X[(k * 2654435761) % len(X)]
+    if proj is not None:
+        new = proj(new)
     return new, distortion
 
 
-def lbg(X, n, eps=0.5):
+def lbg(X, n, eps=0.5, proj=None, restarts=1):
     """Binary-splitting LBG (numpy). n must be a power of two. eps is the
     initial split offset (fraction of the data spread would also work;
-    a small eps suits compact data like the cosine-domain LSPs)."""
-    centers = X.mean(axis=0, keepdims=True)
+    a small eps suits compact data like the cosine-domain LSPs). proj, if
+    given, is applied to the centers after every split and every Lloyd
+    update (see lloyd). restarts > 1 runs several LBG passes from small
+    seeded perturbations of the starting point and keeps the lowest-
+    distortion result (helps avoid shallow local minima in the larger
+    512-entry LSP codebooks). Defaults (proj=None, restarts=1) reproduce
+    the original behaviour exactly."""
+    best_centers = None
+    best_d = float("inf")
 
-    while len(centers) < n:
-        # Split every center into two
-        centers = np.concatenate([centers + eps, centers - eps], axis=0)
-        # Refine until the distortion stops decreasing (scale-invariant, so
-        # it always converges quickly even with degenerate/empty cells)
-        prev_d = float("inf")
-        for it in range(MAX_ITER):
-            centers, d = lloyd(X, centers)
-            if prev_d != float("inf") and (prev_d - d) <= 1e-4 * prev_d:
-                break
-            prev_d = d
-            if it % 50 == 0:
-                print(
-                    "  stage %d, iter %d, distortion %.3e" % (len(centers), it, d),
-                    file=sys.stderr,
-                )
+    for r in range(max(1, restarts)):
+        rng = np.random.RandomState(1337 + 101 * r)
+        centers = X.mean(axis=0, keepdims=True)
+        if restarts > 1:
+            # small seeded perturbation so each restart explores a different
+            # basin; scale to the per-coordinate data spread
+            span = np.ptp(X, axis=0)
+            centers = centers + rng.uniform(-1.0, 1.0, size=centers.shape) * span * 0.02
+        if proj is not None:
+            centers = proj(centers)
 
-    return centers[:n]
+        while len(centers) < n:
+            # Split every center into two
+            centers = np.concatenate([centers + eps, centers - eps], axis=0)
+            if proj is not None:
+                centers = proj(centers)
+            # Refine until the distortion stops decreasing (scale-invariant, so
+            # it always converges quickly even with degenerate/empty cells)
+            prev_d = float("inf")
+            for it in range(MAX_ITER):
+                centers, d = lloyd(X, centers, proj=proj)
+                if prev_d != float("inf") and (prev_d - d) <= 1e-4 * prev_d:
+                    break
+                prev_d = d
+                if it % 50 == 0:
+                    print(
+                        "  restart %d, stage %d, iter %d, distortion %.3e"
+                        % (r, len(centers), it, d),
+                        file=sys.stderr,
+                    )
+
+        if d < best_d:
+            best_d = d
+            best_centers = centers[:n]
+
+    return best_centers

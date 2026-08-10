@@ -4,8 +4,15 @@
 # (ETSI EN 300-395-2 cl. 4.2.2.3)
 #
 # Usage:
-#   python3 lsp_codebook_generator.py [--eps E] [--max-points N] \
-#       features.txt [more.txt ...] > src/lsp_codebook.c
+#   python3 lsp_codebook_generator.py [--eps E] [--restarts N] \
+#       [--max-points N] features.txt [more.txt ...] > src/lsp_codebook.c
+#
+# The ordering constraint (components in [-1, 1], strictly decreasing,
+# min spacing) is enforced INSIDE every LBG iteration (proj), so each
+# emitted entry is a valid LSP sub-vector at every stage, not just a
+# post-hoc cleanup. --restarts N runs the LBG from several seeded
+# starting points and keeps the lowest-distortion result (helps the
+# 512-entry codebooks avoid shallow local minima).
 #
 # Feature files: one LSP vector per line — 10 values in the cosine
 # domain (q_k = cos(w_k), strictly decreasing), dumped by the encoder
@@ -94,13 +101,16 @@ def valid_lsp_centers(centers, min_spacing=1e-4):
 def main():
     args = sys.argv[1:]
     eps = 0.05
+    restarts = 1
     max_points = None
     while args and args[0].startswith("--"):
         opt = args[0]
-        if opt in ("--eps", "--max-points") and len(args) > 1:
+        if opt in ("--eps", "--restarts", "--max-points") and len(args) > 1:
             val = args[1]
             if opt == "--eps":
                 eps = float(val)
+            elif opt == "--restarts":
+                restarts = int(val)
             else:
                 max_points = int(val)
             args = args[2:]
@@ -129,12 +139,21 @@ def main():
     centers_by_group = {}
     for name, start, end, size in GROUPS:
         print(
-            "LBG %s: %d feature vectors -> %d entries (dim %d) ..."
-            % (name, len(feats), size, end - start),
+            "LBG %s: %d feature vectors -> %d entries (dim %d, restarts %d) ..."
+            % (name, len(feats), size, end - start, restarts),
             file=sys.stderr,
         )
+        # Constrained LBG: valid_lsp_centers is applied inside every Lloyd
+        # update (proj), so centroids stay valid through the whole split;
+        # the final call is a cheap safety net.
         centers_by_group[name] = valid_lsp_centers(
-            lbg(feats[:, start:end], size, eps=eps)
+            lbg(
+                feats[:, start:end],
+                size,
+                eps=eps,
+                proj=valid_lsp_centers,
+                restarts=restarts,
+            )
         )
 
     emit_c(centers_by_group)

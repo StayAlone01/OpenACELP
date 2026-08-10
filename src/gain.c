@@ -150,6 +150,15 @@ void Gain_Analysis_Sub(Gain_State *gs, const float *Aq, const float *v,
 	float err_pit = ener_pit - pred_pit;
 	float err_cod = ener_cod - pred_cod;
 
+#ifdef FEEDBACK_TRAINING
+	// Two-pass training hook (scripts/retrain_gain_codebook_2pass.sh): the
+	// normal QUANTIZED-feedback path runs exactly as at runtime (so the
+	// prediction-state trajectory and the collected errors match real use),
+	// but the prediction errors are also dumped to stderr for LBG. The
+	// pass-1 codebook is still in place, so the encoder behaves normally.
+	fprintf(stderr, "%f %f\n", err_pit, err_cod);
+#endif
+
 	// 2-D vector quantization (6 bits)
 	uint8_t idx = gain_search(err_pit, err_cod);
 	gs->gain_idx[sub] = idx;

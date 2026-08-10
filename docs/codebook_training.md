@@ -89,6 +89,22 @@ Or run the whole thing (build training mode + collect + LBG + rebuild) in one sh
 sh scripts/retrain_gain_codebook.sh /path/to/raw_out/
 ```
 
+### Recommended: two-pass (feedback-matched) training
+
+`-DGAIN_TRAINING` drives the prediction state with *unquantized* energies, but at
+runtime the state is driven by the *quantized* energies — so a single-pass
+codebook is trained under a slightly different prediction trajectory than it runs
+under. Use the two-pass script instead: it trains a pass-1 table, then re-collects
+the features through the normal quantized-feedback path (`-DFEEDBACK_TRAINING`
+hook in `src/gain.c`) with that table in place, and retrains to the final table:
+
+```sh
+sh scripts/retrain_gain_codebook_2pass.sh /path/to/raw_out/
+```
+
+This is the recommended path for production codebooks; it costs roughly 2x the
+feature-collection time of the single pass.
+
 ### Step 4 — Run LBG and regenerate the codebook
 
 ```sh
@@ -235,11 +251,18 @@ python3 scripts/lsp_codebook_generator.py training/lsp_features.txt > src/lsp_co
 This splits each 10-D vector into the 3 standard groups (3 + 3 + 4), runs the
 shared numpy LBG (`scripts/lbg_common.py`) with the standard sizes
 **256 / 512 / 512** and emits `src/lsp_codebook.c` (the `extern` declarations
-live in `include/LSP_codebooks.h` and never change). Every emitted entry is
-a **valid LSP sub-vector** (components in [-1, 1], strictly decreasing) — the
-generator clips and sorts each centroid, and the shared LBG re-seeds empty
-cells from a data point so split artifacts cannot drift out of range (this fix
-also benefits the gain codebook).
+live in `include/LSP_codebooks.h` and never change). The ordering constraint is
+enforced **inside every LBG iteration** (each centroid is projected onto the
+valid LSP space — components in [-1, 1], strictly decreasing — during the Lloyd
+updates, not just as a post-hoc cleanup), so every emitted entry is a **valid LSP
+sub-vector**. `--restarts N` runs the LBG from several seeded starting points and
+keeps the lowest-distortion result (helps the 512-entry codebooks escape shallow
+local minima; a few restarts are cheap relative to the full 100+ h run):
+
+```sh
+python3 scripts/lsp_codebook_generator.py --restarts 4 \
+    training/lsp_features.txt > src/lsp_codebook.c
+```
 
 ### Step 4 — Rebuild and validate
 
