@@ -76,7 +76,6 @@ typedef struct
 {
 	float exc_buf[EXC_MEM];					// Past excitation, newest samples at the end
 											// (placeholder: LP residual until 4.2.2.5/6 land)
-	float w_mem[10];						// W(z) denominator memory (weighted speech history)
 	float f_mem[10];						// Weighted synthesis filter 1/A(z/0.85) memory
 	float s_mem[10];						// Past pre-processed speech (for the LP residual)
 	int16_t T1;								// Integer part of sub-frame 1 pitch lag

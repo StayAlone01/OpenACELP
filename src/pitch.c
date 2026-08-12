@@ -63,7 +63,6 @@ void Pitch_Interp_Init(void)
 void Pitch_Init(Pitch_State *ps)
 {
 	memset(ps->exc_buf, 0, sizeof(ps->exc_buf));
-	memset(ps->w_mem,   0, sizeof(ps->w_mem));
 	memset(ps->f_mem,   0, sizeof(ps->f_mem));
 	memset(ps->s_mem,   0, sizeof(ps->s_mem));
 	ps->T1 = 0;
@@ -115,10 +114,17 @@ static void lp_residual(const int16_t *sprime, const float *Aq, float *s_mem, fl
 		s_mem[i] = (float)sprime[SUBFRAME_SIZ - 10 + i];
 }
 
-// Perceptual weighting of one sub-frame, W(z) = Aq(z)/Aq(z/0.85):
-//   sw(n) = res(n) - sum_i d_i sw(n-i)
-// Updates w_mem (weighted speech history).
-static void perceptual_weight(const float *res, const float *Aq, float *w_mem, float *sw)
+// Search target (cl. 4.2.2.4): x(n) is the weighted input speech minus the
+// zero-input response of the weighted synthesis filter 1/Aq(z/0.85). With
+//   sw    = zero-state(G,res) + zero-input(state of res)   (weighted speech)
+//   f_mem = filter memory driven by (res - u)              (past sub-frames)
+// and zero-input(state of res) - zero-input(state of res-u) being the
+// zero-input response of the state driven by u, subtracting the zero-input
+// response of G from f_mem gives
+//   x = zero-state(G,res) + zero-input(state of (res-u)),
+// i.e. simply the LP residual filtered through G with f_mem as the initial
+// state. f_mem is not modified here (it is updated by Excitation_Update).
+static void target_from_res(const float *res, const float *Aq, const float *f_mem, float *x)
 {
 	float d[10];
 	denom_coeffs(Aq, d);
@@ -129,36 +135,11 @@ static void perceptual_weight(const float *res, const float *Aq, float *w_mem, f
 		for(int i = 1; i <= 10; i++)
 		{
 			int idx = n - i;
-			float s = (idx >= 0) ? sw[idx] : w_mem[10 + idx];
+			float s = (idx >= 0) ? x[idx] : f_mem[10 + idx];
 			acc -= d[i-1] * s;
 		}
-		sw[n] = acc;
+		x[n] = acc;
 	}
-	for(int i = 0; i < 10; i++)
-		w_mem[i] = sw[SUBFRAME_SIZ - 10 + i];
-}
-
-// Search target: x(n) = sw(n) - zero-input response of the weighted synthesis
-// filter 1/Aq(z/0.85), whose memory is f_mem. f_mem is not modified here.
-static void target_compute(const float *sw, const float *Aq, const float *f_mem, float *x)
-{
-	float d[10];
-	denom_coeffs(Aq, d);
-
-	float z[SUBFRAME_SIZ];
-	for(int n = 0; n < SUBFRAME_SIZ; n++)
-	{
-		float acc = 0.0f;
-		for(int i = 1; i <= 10; i++)
-		{
-			int idx = n - i;
-			float s = (idx >= 0) ? z[idx] : f_mem[10 + idx];
-			acc += d[i-1] * s;
-		}
-		z[n] = -acc;				// Zero input
-	}
-	for(int n = 0; n < SUBFRAME_SIZ; n++)
-		x[n] = sw[n] - z[n];
 }
 
 // Filter one sub-frame's error signal (res - u) through 1/Aq(z/0.85) and update
@@ -188,8 +169,11 @@ static void synth_mem_update(const float *err, const float *Aq, float *f_mem)
 
 // Adaptive codebook vector at integer delay T0 plus fraction frac_thirds/3,
 // interpolated from the past excitation with the 32-tap filter (frac != 0) or
-// taken directly (frac == 0). For delays < 60 the vector extends into the current
-// sub-frame, whose excitation is already in the buffer (the LP residual).
+// taken directly (frac == 0). For delays below the sub-frame length (60) the
+// excitation repeats itself (cl. 4.2.2.4): samples of the current sub-frame are
+// taken from the already-computed part of 'v', exactly like the decoder
+// (Pitch_Adaptive_Sample). (The closed-loop SEARCH uses the LP-residual
+// extension instead, via filtered_adaptive, as the standard prescribes.)
 static void adaptive_vector(const Pitch_State *ps, int16_t T0, int8_t frac_thirds, float *v)
 {
 	int base = EXC_MEM - SUBFRAME_SIZ;		// First sample of the current sub-frame
@@ -197,17 +181,22 @@ static void adaptive_vector(const Pitch_State *ps, int16_t T0, int8_t frac_third
 	if(frac_thirds == 0)
 	{
 		for(int n = 0; n < SUBFRAME_SIZ; n++)
-			v[n] = ps->exc_buf[base + n - T0];
+		{
+			int m = n - T0;				// Relative to the sub-frame start
+			v[n] = (m < 0) ? ps->exc_buf[base + m] : v[m];
+		}
 	}
 	else
 	{
 		const float *filt = interp_32[frac_phase(frac_thirds)];
 		for(int n = 0; n < SUBFRAME_SIZ; n++)
 		{
-			int idx = base + n - T0;		// Integer part of the delay position
 			float acc = 0.0f;
 			for(int i = 0; i < 32; i++)
-				acc += filt[i] * ps->exc_buf[idx + 16 - i];	// Taps -16..15
+			{
+				int m = n - T0 + 16 - i;	// Relative to the sub-frame start
+				acc += filt[i] * ((m < 0) ? ps->exc_buf[base + m] : v[m]);
+			}
 			v[n] = acc;
 		}
 	}
@@ -389,7 +378,7 @@ static uint16_t encode_pitch(int16_t T0, int8_t frac_thirds, int sub, int16_t T1
 void Pitch_Analysis_Sub(Pitch_State *ps, const int16_t *sprime, const float *Aq,
                         int16_t T0_ol, int sub, float *res)
 {
-	float sw[SUBFRAME_SIZ], x[SUBFRAME_SIZ];
+	float x[SUBFRAME_SIZ];
 	float h[SUBFRAME_SIZ], y[SUBFRAME_SIZ], v[SUBFRAME_SIZ];
 	int16_t T0;
 	int8_t frac;
@@ -397,14 +386,15 @@ void Pitch_Analysis_Sub(Pitch_State *ps, const int16_t *sprime, const float *Aq,
 	// LP residual of this sub-frame (also the delay < 60 extension)
 	lp_residual(sprime, Aq, ps->s_mem, res);
 
-	// Perceptually weighted speech: W(z) = A(z)/A(z/0.85)
-	perceptual_weight(res, Aq, ps->w_mem, sw);
-
 	// Weighted synthesis impulse response: 1/A(z/0.85)
 	weighted_impulse(Aq, h);
 
-	// Search target: weighted speech minus zero-input response
-	target_compute(sw, Aq, ps->f_mem, x);
+	// Search target (cl. 4.2.2.4): the LP residual filtered through the
+	// weighted synthesis filter 1/A(z/0.85), with f_mem (the filter state
+	// driven by res-u in the previous sub-frames) as the initial memory.
+	// This equals the weighted input speech minus the zero-input response
+	// of the weighted synthesis filter.
+	target_from_res(res, Aq, ps->f_mem, x);
 
 	// Append this sub-frame's LP residual to the past-excitation buffer so
 	// delays < 60 can be extended by the LP residual (as the standard says).
@@ -440,6 +430,16 @@ void Pitch_Analysis_Sub(Pitch_State *ps, const int16_t *sprime, const float *Aq,
 		}
 	}
 	closed_loop_search(ps, x, h, lo, hi, sub, &T0, &frac);
+
+	// Normalize the delay to the canonical (T0, frac) representation that the
+	// decoder reconstructs from the transmitted index (decode_pitch): fractions
+	// of +1/3 and +2/3 are represented as -2/3 and -1/3 at T0+1. The transmitted
+	// index (3*T0+frac) is unchanged, but the adaptive vector, the shaping-filter
+	// pitch contribution and T1 of the following sub-frames must use the same
+	// (T0, frac) as the decoder, otherwise the pitch of sub-frames 2-4 drifts by
+	// one sample (off-by-one).
+	if(frac == 1)      { T0 += 1; frac = -2; }
+	else if(frac == 2) { T0 += 1; frac = -1; }
 
 	// Adaptive codebook vector at the chosen delay
 	adaptive_vector(ps, T0, frac, v);

@@ -219,10 +219,10 @@ static void codebook_search(const float *d, float max2, float max3,
 							bs = s;
 						}
 					}
-					time -= 3;
 				}
-				time -= 4;
+				time -= 3;			// 4th-pulse loop completed (cl. 4.2.2.5)
 			}
+			time -= 4;				// 3rd-pulse loop completed (cl. 4.2.2.5)
 		}
 	}
 
