@@ -2,7 +2,9 @@
 
 Status of the codec implementation against **ETSI EN 300-395-2** (TETRA codec, [1]) and **TIA/EIA IS-641** ([2]).
 
-> **Project phase:** picked up by VR2YEP — development in progress (irregular). Encoder is partially implemented (up to open-loop pitch search). Everything below marked `[ ]` is **not done yet**.
+> **Project phase:** picked up by VR2YEP — development in progress (irregular). Encoder and
+> decoder are implemented, and both codebooks are retrained and validated on LibriSpeech.
+> Everything below marked `[ ]` is **not done yet**.
 
 Legend:
 - `[x]` — implemented
@@ -37,10 +39,10 @@ Legend:
 - [x] LSP codebook retraining pipeline (`scripts/lsp_codebook_generator.py`, `-DLSP_TRAINING`
       feature collection, shared numpy LBG to 256/512/512; `sh scripts/retrain_lsp_codebook.sh`,
       or both codebooks in one go with `sh scripts/retrain_codebooks.sh`)
-- [ ] **Retrain / finalize LSP codebooks** — current ones are a *test* set trained on ~44 min of
-      TED-LIUM (FrankGehry_1990.sph only). Pipeline is ready; run it on a proper multi-hour corpus
-      (LibriSpeech train-clean-100) and validate with `scripts/validate_lsp.py`
-      (measured: ~100 % ordering fallbacks / ~8 dB spectral distortion on codec2 test files today)
+- [x] LSP codebooks retrained and validated — trained on **LibriSpeech `train-clean-360`** (~360 h,
+      104 014 files) with the shared numpy LBG (`sh scripts/retrain_lsp_codebook.sh`); held-out
+      validation on `dev-clean` (`scripts/validate_lsp.py`): **0.00 % ordering fallbacks,
+      1.44 dB mean spectral distortion** (256/512/512 usage fully covered)
 
 ## 5. Perceptual weighting ([1] cl. 4.1, 4.2.2; `W(z) = A(z/γ1)/A(z/γ2)`, γ1=0.85, γ2=0.85)
 
@@ -82,7 +84,9 @@ Legend:
       weighted-synthesis filter memory is driven by the residual error `res − u`
 - [x] Gain codebook training pipeline (`scripts/gain_codebook_generator.py`,
       `-DGAIN_TRAINING` feature collection, LBG to 64 entries)
-- [x] Retrain the gain codebook on a proper corpus - Retrained on LibriSpeech.
+- [x] Retrain the gain codebook on a proper corpus — retrained on **LibriSpeech `train-clean-360`**
+      (~360 h); held-out validation on `dev-clean` (`scripts/validate_gains.py`): **RESULT OK**
+      (64/64 entries used, mean |log₂ error| ≈ 0.26 bit)
 
 ## 9. Bit allocation & multiplexing ([1] cl. 4.2.2.7, table 1/3 — 137 bits / 30 ms)
 

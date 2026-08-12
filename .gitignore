@@ -58,6 +58,7 @@ dkms.conf
 # Editor directories and files
 plan*.md
 __pycache__/
+.vscode/
 
 # Test binaries
 tests/test_bits

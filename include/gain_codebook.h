@@ -13,7 +13,7 @@
 // scripts/gain_codebook_generator.py.
 //
 // NOTE: trained with scripts/gain_codebook_generator.py on LibriSpeech
-// train-clean-100 (~100 h, CC BY 4.0) — see docs/codebook_training.md.
+// train-clean-360 (~360 h, CC BY 4.0) — see docs/codebook_training.md.
 //------------------------------------------------------------------
 
 #ifndef GAIN_CODEBOOK

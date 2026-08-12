@@ -1,26 +1,23 @@
 # Codebook training guide
 
-> **Current state (2026-08-09):** both codebooks have been retrained on
-> **LibriSpeech train-clean-100** (~100 h, 28 539 files) and are installed in the
-> tree (`src/gain_codebook.c`, `src/lsp_codebook.c`). Measured on the training
-> data: the LSP codebooks quantize with **~1.45 dB mean spectral distortion and
-> 0.05 % ordering fallbacks**; the gain codebook has **~0.47 bit mean quantization
-> error, 64/64 entries used**. This replaces the previous 65 s demo gain codebook
-> and the 2020 TED-LIUM LSP codebooks. Held-out validation on LibriSpeech
-> `dev-clean` (not used in training): LSP **0.05 % ordering fallbacks / 1.43 dB mean
-> spectral distortion**, gain **RESULT OK** (64/64 usage, mean |log2 error| ≈ 0.3 bit).
+> **Current state (2026-08-12):** both codebooks have been retrained on
+> **LibriSpeech train-clean-360** (~360 h, 104 014 files) and are installed in the
+> tree (`src/gain_codebook.c`, `src/lsp_codebook.c`). This replaces the previous
+> train-clean-100 codebooks. Held-out validation on LibriSpeech
+> `dev-clean` (not used in training): LSP **0.00 % ordering fallbacks / 1.44 dB mean
+> spectral distortion**, gain **RESULT OK** (64/64 usage, mean |log2 error| ≈ 0.26 bit).
 
 This guide explains how to (re)train the OpenACELP codebooks — currently the
 **gain codebook** (cl. 4.2.2.6, `src/gain_codebook.c`) and, in the same spirit, the
 **LSP codebooks** (cl. 4.2.2.3, `src/lsp_codebook.c`). Both are now trained on
-**LibriSpeech `train-clean-100`** (~100 h, CC BY 4.0) — see the status note above.
+**LibriSpeech `train-clean-360`** (~360 h, CC BY 4.0) — see the status note above.
 The pipeline below lets you reproduce that training or extend it (e.g. with more
 LibriSpeech data). A codebook is specific to the corpus it was trained on — using a
 different corpus produces a different, non-interchangeable codebook.
 
 > **Licensing first.** A codebook is *derived data*: distributing it means distributing
 > derivative work of the training corpus. This project's codebooks are trained on
-> **LibriSpeech `train-clean-100`** (CC BY 4.0), a permissive license — see the status
+> **LibriSpeech `train-clean-360`** (CC BY 4.0), a permissive license — see the status
 > note above.
 
 ---
@@ -152,7 +149,7 @@ and **≤ ~1.5 GB RAM** (measured: 5 M features → 838 MB peak, ~4 min LBG; the
 run is ~48 M features → ~1 GB peak, ~40 min LBG).
 
 ```sh
-# 0) one-time prerequisites (system python3, not a ROS2 .venv)
+# 0) one-time prerequisites
 python3 -m pip install --user "soundfile==0.12.1"
 
 # 1) download + extract LibriSpeech (https://www.openslr.org/12)
@@ -218,7 +215,7 @@ LSP frames) and runs LBG three more times (256/512/512) — plan for roughly
 ## 4. LSP codebooks — retraining (same idea, different features)
 
 The LSP codebooks are retrained with the same **automated** pipeline as the gain
-codebook (installed from LibriSpeech `train-clean-100`). The features are the
+codebook (installed from LibriSpeech `train-clean-360`). The features are the
 **raw LSP vectors** (the split codebooks model the LSP distribution directly),
 10 values in the cosine domain `q_k = cos(w_k)`, one line per frame.
 
