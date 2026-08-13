@@ -18,7 +18,9 @@ Gain_State		gain_st;
 // Arg1: output signal, arg2: input speech
 // Arg3: numerator coeffs, arg4: denominator coeffs, arg5: filter length (basically: subframe length)
 // Arg6: previous speech frame, arg7: previous speech frame (weighted)
-// TODO: I'm not sure, if this filtering works properly. Looks like it does...
+// Note: the output is scaled by 1/11 to keep the weighted speech inside the
+// int16_t range (saturation guard). This linear scaling is irrelevant for the
+// open-loop pitch search, which uses normalized correlations.
 void Filter(int16_t *out, int16_t *inp, float *b, float *a, uint8_t len, int16_t *prev_s, int16_t *prev_w_s)
 {
 	float tmp;

@@ -141,6 +141,8 @@ void LD_Solver(int32_t *r, float *a)
 	float k, alpha;
 	float at[11], an[11];	// t: this iteration, n: next iteration
 	float sum;
+
+	an[0] = 1.0f;			// A(z) leading coefficient (never modified below)
 	
 	// Guard against a silent frame (r[0]==0): k = -r[1]/r[0] would be 0/0 = NaN,
 	// and fabs(NaN) > threshold is false, so NaN would propagate to all coeffs.
@@ -178,9 +180,6 @@ void LD_Solver(int32_t *r, float *a)
 			#endif
 			return;
 		}
-		
-		// If r[0] <= 0.0f, use previous coeffs
-		if(r[0] <= 0.0f) { memcpy(a, prev_a, 11*sizeof(float)); return; }
 		
 		// Compute new coeffs
 		for(uint8_t j=1; j<=i-1; j++)

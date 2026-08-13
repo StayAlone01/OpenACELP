@@ -420,14 +420,16 @@ void Pitch_Analysis_Sub(Pitch_State *ps, const int16_t *sprime, const float *Aq,
 	}
 	else
 	{
+		// Sub-frames 2-4 search [T1-5, T1+4] (with the +/-2/3 fractional
+		// refinement this covers the standard's [T1 - 5 2/3, T1 + 4 2/3]).
+		// Clamp BOTH bounds independently: clamping lo to MIN_PITCH and then
+		// deriving hi = lo+9 would shift the whole window UP near the minimum
+		// pitch and let T0-T1 reach +9, overflowing the 5-bit relative pitch
+		// index (max 31) and corrupting the decoder's reconstruction.
 		lo = ps->T1 - 5;
+		hi = ps->T1 + 4;
 		if(lo < MIN_PITCH) lo = MIN_PITCH;
-		hi = lo + 9;
-		if(hi > MAX_PITCH)
-		{
-			hi = MAX_PITCH;
-			lo = hi - 9;
-		}
+		if(hi > MAX_PITCH) hi = MAX_PITCH;
 	}
 	closed_loop_search(ps, x, h, lo, hi, sub, &T0, &frac);
 

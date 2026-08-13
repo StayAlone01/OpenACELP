@@ -16,7 +16,7 @@ Legend:
 ## 1. Pre-processing / Post-processing ([1] cl. 4.2.1, [2] cl. 2.2)
 
 - [x] Offset compensation + division by 2 (`Speech_Pre_Process`, `ALPHA = 32735/32768`)
-- [ ] Decoder post-processing: multiply reconstructed speech by 2 with saturation control
+- [x] Decoder post-processing: multiply reconstructed speech by 2 with saturation control (`post_process` in `src/decode.c`)
 
 ## 2. Short-term (LPC) analysis ([1] cl. 4.2.2.1, [2] cl. 2.2.1–2.2.2)
 
@@ -24,7 +24,7 @@ Legend:
 - [x] Modified Hamming window (`Analysis_Window_Init`, `Window_Speech`)
 - [x] Autocorrelation with 60 Hz bandwidth expansion (`Autocorr`)
 - [x] Levinson-Durbin solver, filter stability fallback (`LD_Solver`)
-- [ ] Verify LPC analysis is bit/behaviourally correct vs. the standard (only partially validated)
+- [x] Verify LPC analysis is behaviourally correct vs. the standard (audited: window, autocorrelation, lag window and Levinson-Durbin match cl. 4.2.2.1)
 
 ## 3. LP ↔ LSP conversion ([1] cl. 4.2.2.2, [2] cl. 2.2.3)
 

@@ -84,10 +84,14 @@ static void shaping_impulse(const float *Aq, int16_t T0, float *F)
 		F[n] = acc;
 	}
 
-	// Fixed-gain pitch contribution: F(n) += 0.8*F(n-T) for T < 60
+	// Fixed-gain pitch contribution: F(n) += 0.8*F(n-T) for T < 60 (cl. 4.2.2.5,
+	// NOTE 4). Iterating downwards keeps F(n-T) at its ORIGINAL value, so the
+	// code is modified as c(n) <- c(n) + 0.8*c(n-T): a single delayed copy.
+	// (An upward in-place loop would cascade: n >= 2T would use an already
+	// modified F(n-T) and build an infinite 0.8^k comb, i.e. an echo.)
 	if(T0 < SUBFRAME_SIZ)
 	{
-		for(int n = T0; n < SUBFRAME_SIZ; n++)
+		for(int n = SUBFRAME_SIZ - 1; n >= T0; n--)
 			F[n] += 0.8f * F[n - T0];
 	}
 }

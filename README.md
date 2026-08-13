@@ -18,7 +18,7 @@ The codebooks are trained on **LibriSpeech `train-clean-360`** (~360 h, CC BY 4.
 | LSP quantization | Split-VQ: 3 codebooks (3 + 3 + 4 dims, 256/512/512 entries) → **26 bits/frame** |
 | LSP quality (validated) | Held-out LibriSpeech `dev-clean`: **0.00 % ordering fallbacks, 1.44 dB mean spectral distortion** |
 | Gain quality (validated) | Held-out LibriSpeech `dev-clean`: 64/64 codebook usage, mean \|log₂ error\| ≈ 0.26 bit |
-| LSP interpolation | Per sub-frame: 100/0, 75/25, 50/50, 25/75 (this/previous frame) |
+| LSP interpolation | Per sub-frame: 25/75, 50/50, 75/25, 100/0 (this/previous frame) |
 | Perceptual weighting | `W(z) = A(z/γ3) / A(z/γ4)` with γ3 = 0.95, γ4 = 0.60 |
 | Shaping matrix | `F(z) = A(z/γ1) / A(z/γ2)` with γ1 = 0.75, γ2 = 0.85 (planned, [1] annex F) |
 | Open-loop pitch | Once per frame, 3 search ranges: 20–39, 40–79, 80–142 |
